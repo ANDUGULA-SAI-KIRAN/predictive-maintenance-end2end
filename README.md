@@ -4,7 +4,7 @@ An end-to-end predictive maintenance pipeline covering data preprocessing, machi
 
 predictive-maintenance-end2end/
 │
-├── notebooks/
+├── notebooks/       # inital experiments by analyzing the data
 │   ├── eda.ipynb         # Data exploration & visualization
 │   ├── preprocessing.ipynb  # Data cleaning, feature engineering and feature selection
 │   ├── initial-modeling.ipynb  # Optional: small-scale experiments
