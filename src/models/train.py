@@ -14,9 +14,8 @@ from src.features.feature_engineering import add_engineered_features
 import matplotlib
 matplotlib.use("Agg")
 
-# -----------------------------
+
 # MLflow and experiment config
-# -----------------------------
 MLFLOW_EXPERIMENT_NAME = "predictive_maintenance"
 MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"  # Persistent SQLite backend
 
@@ -24,10 +23,7 @@ RANDOM_STATE = 42
 # DATA_PATH = "C:/sai files/projects/predictive-maintenance-end2end/test.csv"
 DATA_PATH = "test.csv"
 
-# -----------------------------
 # Utility functions
-# -----------------------------
-
 def optimize_threshold(y_true, y_prob):
     """
     Compute the threshold that maximizes F1 score (or any other metric you want).
@@ -44,10 +40,8 @@ def optimize_threshold(y_true, y_prob):
     })
     return optimal_threshold, metrics_df
 
-# -----------------------------
-# Training functions
-# -----------------------------
 
+# Training functions
 def train_random_forest(X_train, y_train, X_test, y_test):
     print("Training Random Forest...")
     rf_model = RandomForestClassifier(random_state=RANDOM_STATE, n_jobs=-1)
@@ -98,9 +92,8 @@ def train_lightgbm(X_train, y_train, X_test, y_test):
     print(f"LightGBM training complete. Optimal threshold={opt_thresh:.4f}")
     return lgb_model, opt_thresh
 
-# -----------------------------
+
 # Main function
-# -----------------------------
 def main():
     # Configure MLflow
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)  # Connect to SQLite tracking URI
