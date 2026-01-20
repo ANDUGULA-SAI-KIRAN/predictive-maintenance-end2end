@@ -1,0 +1,21 @@
+artifact_path: file:C:/sai files/projects/predictive-maintenance-end2end/mlruns/3/models/m-64b617b5d3254cb7bab0278efa67ca4f/artifacts
+flavors:
+  lightgbm:
+    code: null
+    data: model.pkl
+    lgb_version: 4.6.0
+    model_class: lightgbm.sklearn.LGBMClassifier
+  python_function:
+    data: model.pkl
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.lightgbm
+    python_version: 3.12.7
+mlflow_version: 3.8.1
+model_id: m-64b617b5d3254cb7bab0278efa67ca4f
+model_size_bytes: 498870
+model_uuid: m-64b617b5d3254cb7bab0278efa67ca4f
+prompts: null
+run_id: c5f2cfea3b6345e1888036c9b9d5b5b2
+utc_time_created: '2026-01-20 11:46:41.843228'

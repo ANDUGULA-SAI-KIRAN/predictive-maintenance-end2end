@@ -1,0 +1,11 @@
+{
+  "type": 91,
+  "air_temp": 362,
+  "process_temp": 287,
+  "rpm": 513,
+  "torque": 593,
+  "tool_wear": 854,
+  "power": 346,
+  "temp_diff": 647,
+  "torque_per_rpm": 373
+}
