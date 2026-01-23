@@ -1,0 +1,34 @@
+artifact_path: file:C:/sai files/projects/predictive-maintenance-end2end/mlruns/1/models/m-9abfb62e0e8c427cb1583e7c1db7867b/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.7
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.8.0
+is_signature_from_type_hint: false
+mlflow_version: 3.8.1
+model_id: m-9abfb62e0e8c427cb1583e7c1db7867b
+model_size_bytes: 16259502
+model_uuid: m-9abfb62e0e8c427cb1583e7c1db7867b
+prompts: null
+run_id: a23a9ed948344b0a93fb1bf94c8c8654
+signature:
+  inputs: '[{"type": "long", "name": "type", "required": true}, {"type": "double",
+    "name": "air_temp", "required": true}, {"type": "double", "name": "process_temp",
+    "required": true}, {"type": "long", "name": "rpm", "required": true}, {"type":
+    "double", "name": "torque", "required": true}, {"type": "long", "name": "tool_wear",
+    "required": true}, {"type": "double", "name": "power", "required": true}, {"type":
+    "double", "name": "temp_diff", "required": true}, {"type": "double", "name": "torque_per_rpm",
+    "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "int64", "shape": [-1]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2026-01-19 19:05:44.681505'
