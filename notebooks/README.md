@@ -39,7 +39,7 @@ Accordingly, this project adopts a **risk-based predictive maintenance approach*
 
 ---
 
-### 2. `preprocessing_&_baseline_models.ipynb` — Preprocessing & Strategy Evaluation
+### 2. `feature_engineering_experiments.ipynb` — Preprocessing & Strategy Evaluation
 
 **Objective**
 - Evaluate preprocessing, feature engineering, and imbalance-handling strategies
@@ -64,7 +64,7 @@ Accordingly, this project adopts a **risk-based predictive maintenance approach*
 
 ---
 
-### 3. `final_modeling.ipynb` — Final Model Selection & Calibration
+### 3. `model_experiments.ipynb` — Final Model Selection & Calibration
 
 **Objective**
 - Consolidate insights and finalize models for production training
@@ -96,7 +96,7 @@ The notebooks conclude the **analysis and decision phase** of the project.
 The following steps are handled in the `src/` directory:
 - Reproducible preprocessing pipelines
 - Hyperparameter optimization using Optuna
-- Experiment tracking with MLflow
+- Data versioning with DVC (dagshub) and Experiment tracking with MLflow
 - Model selection, inference, and deployment readiness
 
 This separation ensures:
