@@ -1,0 +1,49 @@
+ingest:
+  remote_file: test.csv
+  local_file: test.csv
+  output_dir: data/raw
+  output_file: combined.csv
+
+base:
+  random_state: 42
+  target_col: "machine_failure"
+
+
+preprocess:
+  input_path: "data/raw/combined.csv"
+  output_dir: "data/processed"
+  test_size: 0.2
+
+feature_eng:
+  output_dir: "data/feature_engineered"
+
+train:
+  n_trials: 2
+  cv_folds: 5
+  experiments:
+    rf: "RF_Maintenance_DagsHub"
+    lgbm: "LGBM_Maintenance_DagsHub"
+  
+  rf_params:
+    n_estimators: [100, 500]
+    max_depth: [5, 30]
+    min_samples_split: [2, 20]
+    min_samples_leaf: [1, 10]
+    max_features: ["sqrt", "log2", 0.3, 0.5, 0.8]
+    class_weight: ["balanced", null]
+    
+  lgbm_params:
+    n_estimators: [100, 500]
+    max_depth: [5, 30]
+    learning_rate: [0.01, 0.2]
+    num_leaves: [20, 150]
+    min_child_samples: [5, 50]
+    subsample: [0.6, 1.0]
+    colsample_bytree: [0.6, 1.0]
+    class_weight: ["balanced", null]
+
+
+evaluate:
+  test_data: "data/feature_engineered/test_enriched.csv"
+  metrics_file: "reports/metrics.json"
+  min_recall_threshold: 0.6

@@ -1,3 +1,29 @@
-# Add patterns of files dvc should ignore, which could improve
-# the performance. Learn more at
-# https://dvc.org/doc/user-guide/dvcignore
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter / notebooks checkpoints
+.notebooks_checkpoints/
+*.ipynb_checkpoints/
+
+# Logs / temporary files
+*.log
+*.tmp
+tmp/
+temp/
+
+# MLflow experiment logs
+mlruns/
+
+# Intermediate / temporary data
+data/raw/*.tmp
+data/raw/*.bak
+data/processed/tmp/
+data/features/tmp/
+
+# Local API / UI cache
+src/api/__pycache__/
+src/ui/__pycache__/
+
+# DVC internal temp folder
+.dvc/tmp/

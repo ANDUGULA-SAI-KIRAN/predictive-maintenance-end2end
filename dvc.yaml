@@ -1,0 +1,63 @@
+stages:
+  ingest:
+    cmd: python -m src.data.data_ingest
+    deps:
+      - src/data/data_ingest.py
+      - src/validation/schemas.py
+    params:
+      - ingest
+    outs:
+      - data/raw/combined.csv
+
+  preprocess:
+    cmd: python -m src.data.preprocess
+    deps:
+      - data/raw/combined.csv
+      - src/data/preprocess.py
+    params:
+      - preprocess
+      - base
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+
+  feature_engineer:
+    cmd: python -m src.features.feature_engineering
+    deps:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - src/features/feature_engineering.py
+    params:
+      - feature_eng
+      - base
+    outs:
+      - data/feature_engineered/train_enriched.csv
+      - data/feature_engineered/test_enriched.csv
+
+
+  train:
+    cmd: python -m src.models.train
+    deps:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - src/models/train.py
+      - src/features/feature_engineering.py
+    params:
+      - train
+      - base
+    outs:
+      - models/
+
+  evaluate:
+      cmd: python -m src.models.evaluate
+      deps:
+        - src/models/evaluate.py
+        - data/feature_engineered/test_enriched.csv
+        - models/rf_model.pkl
+        - models/lgbm_model.pkl
+      params:
+        - evaluate
+        - base
+      metrics:
+        - reports/metrics.json:
+            cache: false

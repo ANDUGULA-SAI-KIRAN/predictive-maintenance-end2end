@@ -2,6 +2,56 @@
 An end-to-end predictive maintenance pipeline covering data preprocessing, machine learning model training, experiment tracking with MLflow, explainable AI, FastAPI serving, and Docker deployment.
 
 
+
+project/
+│
+├── notebooks/                 # Exploratory notebooks (Git tracked)
+│   ├── 01_eda.ipynb
+│   ├── 02_feature_engineering_experiments.ipynb
+│   ├── 03_model_experiments.ipynb
+│   └── README.md
+│
+├── src/
+│   ├── data/
+│   │   ├── ingest.py         # Pull & merge from multiple sources
+│   │   ├── preprocess.py       # Cleaning & preprocessing
+│   │
+│   ├── features/
+│   │   └── build_features.py   # Feature engineering
+│   │
+│   ├── models/
+│   │   ├── train.py            # Training
+│   │   ├── evaluate.py         # Evaluation
+│   │   ├── predict.py          # Prediction/inference
+│   │
+│   ├── api/
+│   │   └── app.py              # FastAPI / inference service
+│   │
+│   ├── ui/
+│   │   └── streamlit_app.py    # Streamlit dashboard
+│
+├── data/                       # All DVC-tracked datasets
+│   ├── raw/                    # Ingested & merged datasets
+│   │   └── combined.csv
+│   ├── processed/              # Cleaned / preprocessed datasets
+│   │   └── preprocessed.csv
+│   └── features/               # Feature-engineered datasets
+│       └── features.csv
+│
+├── models/                     # DVC-tracked trained models
+│   └── final_model.pkl
+│
+├── dvc.yaml                    # DVC pipeline stages
+├── params.yaml                  # Hyperparameters & config
+├── requirements.txt
+├── .github/workflows/           # CI/CD
+│   └── ci.yaml
+├── mlruns/                      # MLflow logs (can be local or remote)
+└── README.md
+
+
+
+
 predictive-maintenance-end2end/
 │
 ├── notebooks/       # inital experiments by analyzing the data
