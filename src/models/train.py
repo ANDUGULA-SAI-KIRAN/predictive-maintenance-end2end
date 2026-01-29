@@ -1,241 +1,274 @@
-# src/models/train.py
+# # # src/models/train.py
+# import os
+# import yaml
+# import pandas as pd
+# import numpy as np
+# import mlflow
+# import optuna
+# from dotenv import load_dotenv
+# from sklearn.ensemble import RandomForestClassifier
+# from lightgbm import LGBMClassifier
+# from sklearn.metrics import precision_recall_curve, auc, recall_score
+# from sklearn.model_selection import StratifiedKFold, cross_val_score
+# import dagshub
+# from src.utils.logger import logger
+# from src.features.feature_engineering import add_engineered_features
+
+# load_dotenv()
+
+
+# def optimize_threshold(y_true, y_prob):
+#     precisions, recalls, thresholds = precision_recall_curve(y_true, y_prob)
+#     f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-6)
+#     best_idx = np.argmax(f1_scores)
+#     optimal_threshold = thresholds[best_idx] if best_idx < len(thresholds) else 0.5
+#     metrics_df = pd.DataFrame({
+#         "threshold": thresholds, "precision": precisions[:-1],
+#         "recall": recalls[:-1], "f1": f1_scores[:-1]
+#     })
+#     return optimal_threshold, metrics_df
+
+
+# class Trainer:
+#     def __init__(self, params):
+#         self.params = params
+#         self.train_cfg = params['train']
+#         self.base_cfg = params['base']
+
+#     def objective_rf(self, trial, X, y):
+#         p = self.train_cfg['rf_params']
+#         args = {
+#             "n_estimators": trial.suggest_int("n_estimators", *p['n_estimators']),
+#             "max_depth": trial.suggest_int("max_depth", *p['max_depth'], log=True),
+#             "min_samples_split": trial.suggest_int("min_samples_split", *p['min_samples_split']),
+#             "min_samples_leaf": trial.suggest_int("min_samples_leaf", *p['min_samples_leaf']),
+#             "max_features": trial.suggest_categorical("max_features", p['max_features']),
+#             "class_weight": trial.suggest_categorical("class_weight", p['class_weight']),
+#             "random_state": self.base_cfg['random_state'],
+#             "n_jobs": -1
+#         }
+#         model = RandomForestClassifier(**args)
+#         skf = StratifiedKFold(n_splits=self.train_cfg['cv_folds'], shuffle=True, random_state=self.base_cfg['random_state'])
+#         return cross_val_score(model, X, y, cv=skf, scoring='recall', n_jobs=-1).mean()
+
+#     def objective_lgbm(self, trial, X, y):
+#         p = self.train_cfg['lgbm_params']
+#         args = {
+#             "n_estimators": trial.suggest_int("n_estimators", *p['n_estimators']),
+#             "max_depth": trial.suggest_int("max_depth", *p['max_depth'], log=True),
+#             "learning_rate": trial.suggest_float("learning_rate", *p['learning_rate']),
+#             "num_leaves": trial.suggest_int("num_leaves", *p['num_leaves']),
+#             "min_child_samples": trial.suggest_int("min_child_samples", *p['min_child_samples']),
+#             "subsample": trial.suggest_float("subsample", *p['subsample']),
+#             "colsample_bytree": trial.suggest_float("colsample_bytree", *p['colsample_bytree']),
+#             "class_weight": trial.suggest_categorical("class_weight", p['class_weight']),
+#             "random_state": self.base_cfg['random_state'],
+#             "n_jobs": -1, "verbose": -1
+#         }
+#         model = LGBMClassifier(**args)
+#         skf = StratifiedKFold(n_splits=self.train_cfg['cv_folds'], shuffle=True, random_state=self.base_cfg['random_state'])
+#         return cross_val_score(model, X, y, cv=skf, scoring='recall', n_jobs=-1).mean()
+
+# def main():
+
+#     # 2. Extract Repo info from .env
+#     owner = os.getenv('REPO_OWNER')
+#     repo = os.getenv('REPO_NAME')
+#     token = os.getenv('DAGSHUB_USER_TOKEN')
+
+#     if not all([owner, repo, token]):
+#         raise ValueError("Missing REPO_OWNER, REPO_NAME, or DAGSHUB_USER_TOKEN in .env")
+
+#     # 3. THE STANDARD APPROACH: Initialize DagsHub
+#     # This automatically sets mlflow.set_tracking_uri and auth
+#     dagshub.init(repo_name=repo, repo_owner=owner, mlflow=True)
+    
+#     # Optional: For double-checking in logs
+#     print(f"Tracking to: {mlflow.get_tracking_uri()}")
+
+#     with open("params.yaml", "r") as f:
+#         params = yaml.safe_load(f)
+
+#     # DagsHub MLflow Setup
+#     remote_url = f"https://dagshub.com/{os.getenv('REPO_OWNER')}/{os.getenv('REPO_NAME')}.mlflow"
+#     mlflow.set_tracking_uri(remote_url)
+    
+#     trainer = Trainer(params)
+    
+#     # Load Data
+#     train_df = pd.read_csv(os.path.join(params['preprocess']['output_dir'], "train.csv"))
+#     test_df = pd.read_csv(os.path.join(params['preprocess']['output_dir'], "test.csv"))
+    
+#     X_train = add_engineered_features(train_df.drop(columns=[params['base']['target_col']]))
+#     y_train = train_df[params['base']['target_col']]
+#     X_test = add_engineered_features(test_df.drop(columns=[params['base']['target_col']]))
+#     y_test = test_df[params['base']['target_col']]
+
+#     for m_type in ['rf', 'lgbm']:
+#         mlflow.set_experiment(params['train']['experiments'][m_type])
+        
+#         with mlflow.start_run(run_name=f"{m_type.upper()}_Parent_Optimization"):
+#             # Nested logging callback
+#             def callback(study, trial):
+#                 with mlflow.start_run(run_name=f"Trial_{trial.number}", nested=True):
+#                     mlflow.log_params(trial.params)
+#                     mlflow.log_metric("recall", trial.value)
+
+#             obj_func = trainer.objective_rf if m_type == 'rf' else trainer.objective_lgbm
+#             study = optuna.create_study(direction='maximize')
+#             study.optimize(lambda t: obj_func(t, X_train, y_train), 
+#                            n_trials=params['train']['n_trials'], 
+#                            callbacks=[callback])
+
+#             # Final Model Training with Best Params
+#             best_params = study.best_params
+#             best_params['random_state'] = params['base']['random_state']
+            
+#             if m_type == 'rf':
+#                 model = RandomForestClassifier(**best_params)
+#             else:
+#                 best_params['verbose'] = -1
+#                 model = LGBMClassifier(**best_params)
+
+#             model.fit(X_train, y_train)
+#             y_prob = model.predict_proba(X_test)[:, 1]
+#             opt_thresh, _ = optimize_threshold(y_test, y_prob)
+            
+#             # Log Final Results to Parent
+#             mlflow.log_params(best_params)
+#             mlflow.log_metric("best_cv_recall", study.best_value)
+#             mlflow.log_metric("opt_threshold", opt_thresh)
+            
+#             if m_type == 'rf': mlflow.sklearn.log_model(model, "rf_model")
+#             else: mlflow.lightgbm.log_model(model, "lgbm_model")
+            
+#             logger.info(f"Finished {m_type} optimization.")
+
+# if __name__ == "__main__":
+#     main()
+
+
 import os
+import yaml
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import precision_recall_curve, auc, recall_score
-from sklearn.model_selection import StratifiedKFold, cross_val_score
-from lightgbm import LGBMClassifier
 import mlflow
-import mlflow.sklearn
-import mlflow.lightgbm
 import optuna
-from utils.logger import logger
+import joblib
+import dagshub
+from dotenv import load_dotenv
+from sklearn.ensemble import RandomForestClassifier
+from lightgbm import LGBMClassifier
+from sklearn.metrics import precision_recall_curve
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+from src.utils.logger import logger
 
-from src.data.preprocess import load_data, preprocess_base_features, train_test_split_data
-from src.features.feature_engineering import add_engineered_features
+load_dotenv()
 
-import matplotlib
-matplotlib.use("Agg")
-
-
-# MLflow and experiment config
-MLFLOW_EXPERIMENT_NAME_RF = "predictive_maintenance_rf"
-MLFLOW_EXPERIMENT_NAME_LGBM = "predictive_maintenance_lgbm"
-MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
-
-RANDOM_STATE = 42
-DATA_PATH = "test.csv"
-N_TRIALS = 50
-CV_FOLDS = 5
-
-
-# Utility functions
 def optimize_threshold(y_true, y_prob):
-    """
-    Compute the threshold that maximizes F1 score (or any other metric you want).
-    """
-    try:
-        precisions, recalls, thresholds = precision_recall_curve(y_true, y_prob)
-        f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-6)
-        best_idx = np.argmax(f1_scores)
-        optimal_threshold = thresholds[best_idx] if best_idx < len(thresholds) else 0.5
-        metrics_df = pd.DataFrame({
-            "threshold": thresholds,
-            "precision": precisions[:-1],
-            "recall": recalls[:-1],
-            "f1": f1_scores[:-1]
-        })
-        return optimal_threshold, metrics_df
-    except Exception as e:
-        logger.error(f"Error in optimize_threshold: {e}")
-        raise
+    precisions, recalls, thresholds = precision_recall_curve(y_true, y_prob)
+    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-6)
+    best_idx = np.argmax(f1_scores)
+    return thresholds[best_idx] if best_idx < len(thresholds) else 0.5
 
+class Trainer:
+    def __init__(self, params):
+        self.params = params
+        self.train_cfg = params['train']
+        self.base_cfg = params['base']
 
-# Optuna objective functions
-def objective_rf(trial, X_train, y_train):
-    """Optuna objective for Random Forest with StratifiedKFold CV"""
-    try:
-        params = {
-            "n_estimators": trial.suggest_int("n_estimators", 100, 500),
-            "max_depth": trial.suggest_int("max_depth", 5, 30, log=True),
-            "min_samples_split": trial.suggest_int("min_samples_split", 2, 20),
-            "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 10),
-            "max_features": trial.suggest_categorical("max_features", ["sqrt", "log2", 0.3, 0.5, 0.8]),
-            "class_weight": trial.suggest_categorical("class_weight", ["balanced", None]),
-            "random_state": RANDOM_STATE,
+    def objective_rf(self, trial, X, y):
+        p = self.train_cfg['rf_params']
+        args = {
+            "n_estimators": trial.suggest_int("n_estimators", *p['n_estimators']),
+            "max_depth": trial.suggest_int("max_depth", *p['max_depth'], log=True),
+            "min_samples_split": trial.suggest_int("min_samples_split", *p['min_samples_split']),
+            "min_samples_leaf": trial.suggest_int("min_samples_leaf", *p['min_samples_leaf']),
+            "max_features": trial.suggest_categorical("max_features", p['max_features']),
+            "class_weight": trial.suggest_categorical("class_weight", p['class_weight']),
+            "random_state": self.base_cfg['random_state'],
             "n_jobs": -1
         }
-        
-        model = RandomForestClassifier(**params)
-        
-        # StratifiedKFold for imbalanced data
-        skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
-        cv_scores = cross_val_score(model, X_train, y_train, cv=skf, scoring='recall', n_jobs=-1)
-        
-        return cv_scores.mean()
-    except Exception as e:
-        logger.error(f"Error in RF objective: {e}")
-        raise
+        model = RandomForestClassifier(**args)
+        skf = StratifiedKFold(n_splits=self.train_cfg['cv_folds'], shuffle=True, random_state=self.base_cfg['random_state'])
+        return cross_val_score(model, X, y, cv=skf, scoring='recall', n_jobs=-1).mean()
 
-
-def objective_lgbm(trial, X_train, y_train):
-    """Optuna objective for LightGBM with StratifiedKFold CV"""
-    try:
-        params = {
-            "n_estimators": trial.suggest_int("n_estimators", 100, 500),
-            "max_depth": trial.suggest_int("max_depth", 5, 30, log=True),
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2),
-            "num_leaves": trial.suggest_int("num_leaves", 20, 150),
-            "min_child_samples": trial.suggest_int("min_child_samples", 5, 50),
-            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "class_weight": trial.suggest_categorical("class_weight", ["balanced", None]),
-            "random_state": RANDOM_STATE,
-            "n_jobs": -1,
-            "verbose": -1
+    def objective_lgbm(self, trial, X, y):
+        p = self.train_cfg['lgbm_params']
+        args = {
+            "n_estimators": trial.suggest_int("n_estimators", *p['n_estimators']),
+            "max_depth": trial.suggest_int("max_depth", *p['max_depth'], log=True),
+            "learning_rate": trial.suggest_float("learning_rate", *p['learning_rate']),
+            "num_leaves": trial.suggest_int("num_leaves", *p['num_leaves']),
+            "min_child_samples": trial.suggest_int("min_child_samples", *p['min_child_samples']),
+            "subsample": trial.suggest_float("subsample", *p['subsample']),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", *p['colsample_bytree']),
+            "class_weight": trial.suggest_categorical("class_weight", p['class_weight']),
+            "random_state": self.base_cfg['random_state'],
+            "n_jobs": -1, "verbose": -1
         }
-        
-        model = LGBMClassifier(**params)
-        
-        # StratifiedKFold for imbalanced data
-        skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
-        cv_scores = cross_val_score(model, X_train, y_train, cv=skf, scoring='recall', n_jobs=-1) # pyright: ignore[reportArgumentType]
-        
-        return cv_scores.mean()
-    except Exception as e:
-        logger.error(f"Error in LGBM objective: {e}")
-        raise
+        model = LGBMClassifier(**args)
+        skf = StratifiedKFold(n_splits=self.train_cfg['cv_folds'], shuffle=True, random_state=self.base_cfg['random_state'])
+        return cross_val_score(model, X, y, cv=skf, scoring='recall', n_jobs=-1).mean()
 
-
-# Training functions
-def train_random_forest(X_train, y_train, X_test, y_test):
-    logger.info("Starting Random Forest hyperparameter optimization...")
-    
-    try:
-        # Optuna study
-        study = optuna.create_study(direction='maximize', study_name='RF_optuna')
-        study.optimize(lambda trial: objective_rf(trial, X_train, y_train), n_trials=N_TRIALS, show_progress_bar=True)
-        
-        best_params = study.best_params
-        logger.info(f"Best RF params: {best_params}")
-        logger.info(f"Best CV recall: {study.best_value:.4f}")
-        
-        # Train final model with best params
-        best_params['random_state'] = RANDOM_STATE
-        best_params['n_jobs'] = -1
-        rf_model = RandomForestClassifier(**best_params)
-        
-        with mlflow.start_run(run_name="RF_optuna_best"):
-            mlflow.sklearn.autolog()
-            
-            rf_model.fit(X_train, y_train)
-            
-            y_prob = rf_model.predict_proba(X_test)[:, 1]
-            opt_thresh, metrics_df = optimize_threshold(y_test, y_prob)
-            
-            recall_at_opt_thresh = recall_score(y_test, (y_prob > opt_thresh).astype(int))
-            
-            # Log custom metrics
-            mlflow.log_params(best_params)
-            mlflow.log_metric("cv_recall_mean", study.best_value)
-            mlflow.log_metric("optimal_threshold", opt_thresh)
-            mlflow.log_metric("recall_at_opt_thresh", recall_at_opt_thresh)
-            mlflow.log_metric("pr_auc", auc(metrics_df["recall"], metrics_df["precision"]))
-            
-            # Log model
-            mlflow.sklearn.log_model(rf_model, "RF_model")
-        
-        logger.info(f"Random Forest training complete. Optimal threshold={opt_thresh:.4f}")
-        return rf_model, opt_thresh
-        
-    except Exception as e:
-        logger.error(f"Error in train_random_forest: {e}")
-        raise
-
-
-def train_lightgbm(X_train, y_train, X_test, y_test):
-    logger.info("Starting LightGBM hyperparameter optimization...")
-    
-    try:
-        # Optuna study
-        study = optuna.create_study(direction='maximize', study_name='LGBM_optuna')
-        study.optimize(lambda trial: objective_lgbm(trial, X_train, y_train), n_trials=N_TRIALS, show_progress_bar=True)
-        
-        best_params = study.best_params
-        logger.info(f"Best LGBM params: {best_params}")
-        logger.info(f"Best CV recall: {study.best_value:.4f}")
-        
-        # Train final model with best params
-        best_params['random_state'] = RANDOM_STATE
-        best_params['n_jobs'] = -1
-        best_params['verbose'] = -1
-        lgb_model = LGBMClassifier(**best_params)
-        
-        with mlflow.start_run(run_name="LGBM_optuna_best"):
-            mlflow.lightgbm.autolog()
-            
-            lgb_model.fit(X_train, y_train)
-            
-            y_prob = lgb_model.predict_proba(X_test)[:, 1]
-            opt_thresh, metrics_df = optimize_threshold(y_test, y_prob)
-            
-            recall_at_opt_thresh = recall_score(y_test, (y_prob > opt_thresh).astype(int))
-            
-            # Log custom metrics
-            mlflow.log_params(best_params)
-            mlflow.log_metric("cv_recall_mean", study.best_value)
-            mlflow.log_metric("optimal_threshold", opt_thresh)
-            mlflow.log_metric("recall_at_opt_thresh", recall_at_opt_thresh)
-            mlflow.log_metric("pr_auc", auc(metrics_df["recall"], metrics_df["precision"]))
-            
-            # Log model
-            mlflow.lightgbm.log_model(lgb_model, "LGBM_model")
-        
-        logger.info(f"LightGBM training complete. Optimal threshold={opt_thresh:.4f}")
-        return lgb_model, opt_thresh
-        
-    except Exception as e:
-        logger.error(f"Error in train_lightgbm: {e}")
-        raise
-
-
-# Main function
 def main():
     try:
-        # Configure MLflow
-        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-        
-        # Load & preprocess data
-        logger.info(f"Loading data from {DATA_PATH}")
-        df = load_data(DATA_PATH)
-        logger.info(f"Loaded {df.shape[0]} rows and {df.shape[1]} columns")
-        
-        df = preprocess_base_features(df)
-        
-        X_train, X_test, y_train, y_test = train_test_split_data(df)
-        X_train_fe = add_engineered_features(X_train)
-        X_test_fe = add_engineered_features(X_test)
-        
-        # Train Random Forest with separate experiment
-        mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME_RF)
-        rf_model, rf_threshold = train_random_forest(X_train_fe, y_train, X_test_fe, y_test)
-        
-        # Train LightGBM with separate experiment
-        mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME_LGBM)
-        lgb_model, lgb_threshold = train_lightgbm(X_train_fe, y_train, X_test_fe, y_test)
-        
-        logger.info("\nTraining complete. Models saved in MLflow SQLite DB.")
-        logger.info(f"Random Forest threshold: {rf_threshold:.4f}")
-        logger.info(f"LightGBM threshold: {lgb_threshold:.4f}")
-        
-    except FileNotFoundError as e:
-        logger.error(f"Data file not found: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error in main execution: {e}")
-        raise
+        logger.info("Initializing Training Pipeline")
+        owner, repo = os.getenv('REPO_OWNER'), os.getenv('REPO_NAME')
+        dagshub.init(repo_name=repo, repo_owner=owner, mlflow=True)
 
+        with open("params.yaml", "r") as f:
+            params = yaml.safe_load(f)
+
+        # Loading ENRICHED data from the new directory
+        data_dir = "data/feature_engineered"
+        target = params['base']['target_col']
+        
+        train_df = pd.read_csv(os.path.join(data_dir, "train_enriched.csv"))
+        test_df = pd.read_csv(os.path.join(data_dir, "test_enriched.csv"))
+        
+        X_train, y_train = train_df.drop(columns=[target]), train_df[target]
+        X_test, y_test = test_df.drop(columns=[target]), test_df[target]
+
+        trainer = Trainer(params)
+
+        for m_type in ['rf', 'lgbm']:
+            logger.info(f"Starting {m_type.upper()} trials")
+            mlflow.set_experiment(params['train']['experiments'][m_type])
+            
+            with mlflow.start_run(run_name=f"{m_type.upper()}_Optimization"):
+                def callback(study, trial):
+                    with mlflow.start_run(run_name=f"Trial_{trial.number}", nested=True):
+                        mlflow.log_params(trial.params)
+                        mlflow.log_metric("recall", trial.value)
+
+                obj_func = trainer.objective_rf if m_type == 'rf' else trainer.objective_lgbm
+                study = optuna.create_study(direction='maximize')
+                study.optimize(lambda t: obj_func(t, X_train, y_train), n_trials=params['train']['n_trials'], callbacks=[callback])
+
+                # Train best model
+                best_params = study.best_params
+                best_params['random_state'] = params['base']['random_state']
+                model = RandomForestClassifier(**best_params) if m_type == 'rf' else LGBMClassifier(**best_params, verbose=-1)
+                
+                model.fit(X_train, y_train)
+                
+                # Artifact Saving
+                os.makedirs("models", exist_ok=True)
+                joblib.dump(model, f"models/{m_type}_model.pkl")
+                
+                # MLflow Logging
+                mlflow.log_params(best_params)
+                mlflow.log_metric("best_cv_recall", study.best_value)
+                
+                if m_type == 'rf': mlflow.sklearn.log_model(model, "rf_model")
+                else: mlflow.lightgbm.log_model(model, "lgbm_model")
+                
+                logger.info(f"Finished {m_type} optimization and saved local artifact.")
+
+    except Exception as e:
+        logger.error(f"Training Stage Failed: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
