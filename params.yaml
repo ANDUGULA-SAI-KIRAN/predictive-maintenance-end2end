@@ -18,7 +18,7 @@ feature_eng:
   output_dir: "data/feature_engineered"
 
 train:
-  n_trials: 2
+  n_trials: 25
   cv_folds: 5
   experiments:
     rf: "RF_Maintenance_DagsHub"

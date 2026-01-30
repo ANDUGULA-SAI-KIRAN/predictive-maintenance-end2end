@@ -1,0 +1,51 @@
+name: Continuous Training
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install dvc[s3] cml  # CML for reporting
+
+      - name: Setup DVC & Pull Data
+        env:
+          DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
+        run: |
+          # Authenticating DVC with DagsHub
+          dvc remote modify origin --local auth basic
+          dvc remote modify origin --local user YOUR_DAGSHUB_USERNAME
+          dvc remote modify origin --local password $DAGSHUB_USER_TOKEN
+          dvc pull
+
+      - name: Reproduce Pipeline
+        env:
+          DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
+        run: dvc repro  # This runs ingest -> preprocess -> train -> evaluate
+
+      - name: Create CML Report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## 🚀 Model Training Report" > report.md
+          echo "### Performance Metrics" >> report.md
+          
+          # Convert your metrics.json into a readable table for GitHub
+          cat reports/metrics.json >> report.md 
+          
+          # Send the report as a comment to the Commit/PR
+          cml comment create report.md

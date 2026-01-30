@@ -61,21 +61,22 @@ def ingest_data():
         df_remote = validate_training_data(df_remote)
 
         # --- 4. READ LOCAL DATA ---
-        logger.info(f"Reading local file: {LOCAL_FILE_PATH}")
-        if not os.path.exists(LOCAL_FILE_PATH):
-            raise FileNotFoundError(
-                f"Local file '{LOCAL_FILE_PATH}' not found."
-            )
+        # logger.info(f"Reading local file: {LOCAL_FILE_PATH}")
+        # if not os.path.exists(LOCAL_FILE_PATH):
+        #     raise FileNotFoundError(
+        #         f"Local file '{LOCAL_FILE_PATH}' not found."
+        #     )
 
-        df_local = pd.read_csv(LOCAL_FILE_PATH)
+        # df_local = pd.read_csv(LOCAL_FILE_PATH) #####################
 
         # -----Validate local dataset----- 2
         logger.info("Validating local dataset schema...")
-        df_local = validate_training_data(df_local)
+        # df_local = validate_training_data(df_local)
 
         # ---  MERGE & SAVE ---
         logger.info("Merging datasets...")
-        df_combined = pd.concat([df_remote, df_local], ignore_index=True)
+        # df_combined = pd.concat([df_remote, df_local], ignore_index=True) #########################
+        df_combined = df_remote ######################
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         df_combined.to_csv(OUTPUT_FILE, index=False)
