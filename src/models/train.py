@@ -47,7 +47,7 @@ class Trainer:
             "max_features": trial.suggest_categorical("max_features", p['max_features']),
             "class_weight": trial.suggest_categorical("class_weight", p['class_weight']),
             "random_state": self.base_cfg['random_state'],
-            "n_jobs": -1
+            "n_jobs": 1
         }
         model = RandomForestClassifier(**args)
         skf = StratifiedKFold(n_splits=self.train_cfg['cv_folds'], shuffle=True, random_state=self.base_cfg['random_state'])
