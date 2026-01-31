@@ -20,7 +20,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install dvc[s3] cml  # CML for reporting
 
       - name: Setup DVC & Pull Data
         env:
