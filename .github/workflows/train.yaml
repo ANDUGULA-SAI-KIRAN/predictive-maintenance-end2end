@@ -23,12 +23,16 @@ jobs:
 
       - name: Pull data from DagsHub (DVC)
         env:
-          DAGSHUB_USER: ANDUGULA-SAI-KIRAN
-          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.DAGSHUB_USER_TOKEN }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DAGSHUB_USER_TOKEN }}
         run: |
           dvc pull
 
       - name: Reproduce Pipeline
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
         run: dvc repro  # This runs ingest -> preprocess -> train -> evaluate
 
       - name: Create CML Report
