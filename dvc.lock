@@ -100,8 +100,8 @@ stages:
       size: 2501
     - path: src/models/train.py
       hash: md5
-      md5: 86d461ad6d7ecb541891880c03a12f66
-      size: 9215
+      md5: 1b04ab056ab326890ed37b137bc6cd26
+      size: 9216
     params:
       params.yaml:
         base:
@@ -163,9 +163,9 @@ stages:
     outs:
     - path: models/
       hash: md5
-      md5: d751713988987e9331980363e24189ce.dir
-      size: 0
-      nfiles: 0
+      md5: e993e0fdb820062ed00b2d99175e24db.dir
+      size: 1325885
+      nfiles: 2
   evaluate:
     cmd: python -m src.models.evaluate
     deps:
@@ -175,16 +175,16 @@ stages:
       size: 872137
     - path: models/lgbm_model.pkl
       hash: md5
-      md5: fc4471c3fa11f6c3ae6038f362be4933
-      size: 6557140
+      md5: 4abfb504e595e131f30d91c3f2e783c1
+      size: 822356
     - path: models/rf_model.pkl
       hash: md5
-      md5: 0435ffcb7ee178226a89b0570fd5c5da
-      size: 19959849
+      md5: f306ad613ce6f32e9574a6dc44a5ef4f
+      size: 503529
     - path: src/models/evaluate.py
       hash: md5
-      md5: 0d23d9471eb6c8357e159fd783767462
-      size: 4533
+      md5: e6db6b73d5799265f32bf2dcaaa47d14
+      size: 5774
     params:
       params.yaml:
         base:
