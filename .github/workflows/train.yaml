@@ -21,19 +21,14 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Setup DVC & Pull Data
+      - name: Pull data from DagsHub (DVC)
         env:
-          DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
+          DAGSHUB_USER: ANDUGULA-SAI-KIRAN
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
         run: |
-          # Authenticating DVC with DagsHub
-          dvc remote modify origin --local auth basic
-          dvc remote modify origin --local user YOUR_DAGSHUB_USERNAME
-          dvc remote modify origin --local password $DAGSHUB_USER_TOKEN
           dvc pull
 
       - name: Reproduce Pipeline
-        env:
-          DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
         run: dvc repro  # This runs ingest -> preprocess -> train -> evaluate
 
       - name: Create CML Report
