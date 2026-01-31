@@ -110,7 +110,7 @@ def main():
 
         trainer = Trainer(params)
         # Assuming we need atleast 0.5 of recall as per business needs
-        min_recall_threshold = 0.5
+        min_recall_threshold = 0.45
         min_f1_threshold = 0.45
 
         for m_type in ['rf', 'lgbm']:

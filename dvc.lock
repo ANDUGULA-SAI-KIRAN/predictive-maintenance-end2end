@@ -100,15 +100,15 @@ stages:
       size: 2501
     - path: src/models/train.py
       hash: md5
-      md5: b6dc0628072f171bdb26bd1b826d39fc
-      size: 9247
+      md5: 86d461ad6d7ecb541891880c03a12f66
+      size: 9215
     params:
       params.yaml:
         base:
           random_state: 42
           target_col: machine_failure
         train:
-          n_trials: 15
+          n_trials: 25
           cv_folds: 5
           experiments:
             rf: RF_Maintenance_DagsHub
