@@ -5,10 +5,12 @@ import pandas as pd
 import numpy as np
 import mlflow
 import optuna
-import joblib
+import sys
 import dagshub
+import json
 from dotenv import load_dotenv
 from sklearn.ensemble import RandomForestClassifier
+from mlflow.models import infer_signature
 from lightgbm import LGBMClassifier
 from sklearn.metrics import ( precision_recall_curve, precision_score, 
                 recall_score, f1_score, average_precision_score)
@@ -95,6 +97,9 @@ def main():
         owner, repo = os.getenv('REPO_OWNER'), os.getenv('REPO_NAME')
         dagshub.init(repo_name=repo, repo_owner=owner, mlflow=True) # type: ignore
 
+        # Initialize the client ONCE
+        client = mlflow.tracking.MlflowClient() # type: ignore
+
         with open("params.yaml", "r") as f:
             params = yaml.safe_load(f)
 
@@ -112,10 +117,11 @@ def main():
         # Assuming we need atleast 0.5 of recall as per business needs
         min_recall_threshold = 0.45
         min_f1_threshold = 0.45
+        final_summary_metrics={}
 
         for m_type in ['rf', 'lgbm']:
             logger.info(f"---Starting {m_type.upper()} trials---")
-            mlflow.set_experiment(params['train']['experiments'][m_type])
+            mlflow.set_experiment(experiment_name=f"Predictive_Maintenance_{m_type.upper()}")
             
             with mlflow.start_run(run_name=f"{m_type.upper()}_Optimization"):
                 def callback(study, trial):
@@ -132,19 +138,18 @@ def main():
 
                 # Train best model
                 best_params = study.best_params
+                int_params = ['n_estimators', 'max_depth', 'min_samples_split', 'min_samples_leaf', 'num_leaves']
+                for p in int_params:
+                    if p in best_params:
+                        best_params[p] = int(best_params[p])
+
                 best_params['random_state'] = params['base']['random_state']
                 model = RandomForestClassifier(**best_params) if m_type == 'rf' else LGBMClassifier(**best_params, verbose=-1)
-                
                 model.fit(X_train, y_train)
-                os.makedirs("models", exist_ok=True)
+
                 # --- EVALUATION LOGIC ---
-                # 1. Get Probabilities (required for PR-AUC and threshold tuning)
                 y_probs = model.predict_proba(X_test)[:, 1] # type: ignore
-                
-                # 2. Calculate PR-AUC (Area under Precision-Recall Curve)
                 pr_auc = average_precision_score(y_test, y_probs)
-                
-                # 3. Optimize Threshold for F1
                 best_thresh = optimize_threshold(y_test, y_probs)
                 y_pred = (y_probs >= best_thresh).astype(int)
                 
@@ -153,33 +158,78 @@ def main():
                 rec = recall_score(y_test, y_pred)
                 f1 = f1_score(y_test, y_pred)
 
+                # --- Summary for CML ---
+                final_summary_metrics[f"{m_type}_test_recall"] = float(rec)
+                final_summary_metrics[f"{m_type}_test_f1"] = float(f1)
+                final_summary_metrics[f"{m_type}_threshold"] = float(best_thresh)
+
                 logger.info(f"{m_type.upper()} Results with Threshold {best_thresh:.2f}:")
                 logger.info(f"Precision: {prec:.2f} | Recall: {rec:.4f} | F1: {f1:.2f} | PR-AUC: {pr_auc:.2f}")
 
-                # MLflow Logging
+                # MLflow Logging params and metrics
+                mlflow.log_param("optimal_threshold", float(best_thresh))
                 mlflow.log_params(best_params)
                 metrics= {
                     "test_precision": prec,
                     "test_recall": rec,
                     "test_f1": f1,
                     "test_pr_auc": pr_auc,
-                    "best_threshold": best_thresh
                 }
                 mlflow.log_metrics(metrics)
-                
-                # Artifact Saving
+
+                signature = infer_signature(X_test, y_pred)
+
+                # --- Candidate model registry --- 
                 if (rec > min_recall_threshold) and (f1 > min_f1_threshold):
-                    logger.info(f"{m_type.upper()} passed threshold. Saving...")
-                    joblib.dump(model, f"models/{m_type}_model.pkl")
-                    
-                    if m_type == 'rf': mlflow.sklearn.log_model(model, "rf_model") # type: ignore
-                    else: mlflow.lightgbm.log_model(model, "lgbm_model") # type: ignore
+                    logger.info(f"{m_type.upper()}Model - recall {rec:.2f} | {f1:.2f} passed threshold. Registering...")                    
+                    reg_name = f"{m_type.upper()}_Model" 
+
+                    mlflow.log_dict(
+                            {"best_threshold": float(best_thresh)},
+                            artifact_file="model_config/best_threshold.json"
+                        )
+
+                    mlflow.log_dict(params,
+                            artifact_file="model_config/params_config.json"
+                        )
+
+                    if m_type == 'rf':
+                        model_info = mlflow.sklearn.log_model( # type: ignore
+                            sk_model=model, 
+                            artifact_path="model",
+                            signature=signature,
+                            registered_model_name=reg_name 
+                        )
+                    else:
+                        model_info = mlflow.lightgbm.log_model( # type: ignore
+                            lgb_model=model, 
+                            artifact_path="model",
+                            signature=signature,
+                            registered_model_name=reg_name 
+                        )
+
+                    # Logging the model with alias as candidate 
+                    client.set_registered_model_alias(
+                        name=reg_name, 
+                        alias="candidate", 
+                        version=model_info.registered_model_version # type: ignore
+                    )
+                    logger.info(f"Registered {reg_name} version {model_info.registered_model_version} as 'candidate'")
+                    final_summary_metrics[f"{m_type}_registered"] = "Yes"
                 else:
+                    final_summary_metrics[f"{m_type}_registered"] = "No"
                     logger.warning(f"❌ {m_type.upper()} recall {rec:.2f} < {min_recall_threshold} or {f1:.2f} < {min_f1_threshold}")
 
+        # --- ADDED: Save metrics to local file for GitHub/DVC ---
+        os.makedirs("reports", exist_ok=True)
+        with open("reports/metrics.json", "w") as f:
+            json.dump(final_summary_metrics, f, indent=4)
+        logger.info("Final metrics saved to reports/metrics.json")
+        sys.exit(0)
 
     except Exception as e:
         logger.error(f"Training Stage Failed: {e}")
+        sys.exit(1)
         raise
 
 if __name__ == "__main__":

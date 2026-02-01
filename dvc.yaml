@@ -45,19 +45,6 @@ stages:
     params:
       - train
       - base
-    outs:
-      - models/
-
-  evaluate:
-      cmd: python -m src.models.evaluate
-      deps:
-        - src/models/evaluate.py
-        - data/feature_engineered/test_enriched.csv
-        - models/rf_model.pkl
-        - models/lgbm_model.pkl
-      params:
-        - evaluate
-        - base
-      metrics:
-        - reports/metrics.json:
-            cache: false
+    metrics:
+      - reports/metrics.json:
+          cache: false

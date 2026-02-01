@@ -21,8 +21,8 @@ train:
   n_trials: 25
   cv_folds: 5
   experiments:
-    rf: "RF_Maintenance_DagsHub"
-    lgbm: "LGBM_Maintenance_DagsHub"
+    rf: "RF_Model"
+    lgbm: "LGBM_Model"
   
   rf_params:
     n_estimators: [100, 500]
@@ -41,9 +41,3 @@ train:
     subsample: [0.6, 1.0]
     colsample_bytree: [0.6, 1.0]
     class_weight: ["balanced", null]
-
-
-evaluate:
-  test_data: "data/feature_engineered/test_enriched.csv"
-  metrics_file: "reports/metrics.json"
-  min_recall_threshold: 0.6
