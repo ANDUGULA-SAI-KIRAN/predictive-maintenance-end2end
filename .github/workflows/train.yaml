@@ -35,15 +35,32 @@ jobs:
           DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
         run: dvc repro  # This runs ingest -> preprocess -> train -> evaluate
 
-      - name: Create CML Report
+      - name: Setup CML
+        uses: iterative/setup-cml@v1
+
+      - name: Create and Post Report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Create markdown report
           echo "## 🚀 Model Training Report" > report.md
           echo "### Performance Metrics" >> report.md
+          echo "" >> report.md
           
-          # Convert your metrics.json into a readable table for GitHub
-          cat reports/metrics.json >> report.md 
+          # Format metrics.json into a readable markdown table
+          python3 << 'EOF'
+          import json
           
-          # Send the report as a comment to the Commit/PR
+          with open('reports/metrics.json', 'r') as f:
+              metrics = json.load(f)
+          
+          # Create markdown table
+          with open('report.md', 'a') as f:
+              f.write("| Metric | Value |\n")
+              f.write("|--------|-------|\n")
+              for key, value in metrics.items():
+                  f.write(f"| {key} | {value:.4f} |\n")
+          EOF
+          
+          # Post the report as a comment
           cml comment create report.md

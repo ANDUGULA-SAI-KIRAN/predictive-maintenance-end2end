@@ -1,96 +1,86 @@
-# # src/api/app.py
-# from fastapi import FastAPI, HTTPException
-# from pydantic import BaseModel
-# from src.models.predict import get_best_model_metadata, predict_with_confidence, cache
-# from src.models.shap_analysis import get_shap_plots
-
-# app = FastAPI(title="Maintenance AI Backend")
-
-# class PredictRequest(BaseModel):
-#     type: str
-#     air_temperature: float
-#     process_temperature: float
-#     rotational_speed: float
-#     torque: float
-#     tool_wear: int
-
-# @app.post("/select_model")
-# def select_model(model_name: str):
-#     metadata = get_best_model_metadata(model_name)
-#     if not metadata:
-#         raise HTTPException(status_code=404, detail="Model not found in MLflow")
-#     return metadata
-
-# @app.post("/predict")
-# def predict(request: PredictRequest):
-#     try:
-#         # 1. Get Prediction
-#         results = predict_with_confidence(request.dict())
-        
-#         # 2. Get SHAP Plots
-#         shap_plots = get_shap_plots(cache.model, results['processed_df'])
-        
-#         return {
-#             "prediction_details": {
-#                 "label": results['label'],
-#                 "confidence": results['confidence'],
-#                 "probability": results['probability']
-#             },
-#             "plots": shap_plots
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from contextlib import asynccontextmanager
-from src.models.predict import model_server
+# src/api/app.py
+from fastapi import FastAPI, HTTPException, Body
+from pydantic import BaseModel, Field
+from src.models.predict import manager, predict_with_explanation
 from src.models.shap_analysis import get_shap_plots
+from typing import Literal
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # STARTUP: Load the best model from DagsHub Registry
-    print("Connecting to DagsHub Model Registry...")
-    try:
-        model_server.load_production_model()
-        print("Model loaded successfully!")
-    except Exception as e:
-        print(f"Startup Error: {e}")
-    yield
-    # SHUTDOWN: Clean up if necessary
-    print("Shutting down API...")
+app = FastAPI(
+    title="Predictive Maintenance AI API",
+    description="API for high-precision failure detection using @champion models from MLflow.",
+    version="2.0.0"
+)
 
-app = FastAPI(title="Maintenance AI Pro Backend", lifespan=lifespan)
+# 1. Define Request Schema
+class MaintenanceRequest(BaseModel):
+    type: Literal["Low", "Medium", "High"]
+    air_temperature: float = Field(..., gt=200, lt=400)
+    process_temperature: float = Field(..., gt=200, lt=400)
+    rotational_speed: int = Field(..., gt=0)
+    torque: float = Field(..., gt=0)
+    tool_wear: int = Field(..., ge=0)
 
-class PredictRequest(BaseModel):
-    type: str
-    air_temperature: float
-    process_temperature: float
-    rotational_speed: float
-    torque: float
-    tool_wear: int
-
+# 2. Endpoint: Health Check
 @app.get("/health")
-def health():
-    return {"status": "ready", "model_metadata": model_server.metadata}
+def health_check():
+    return {"status": "online", "registry": "connected"}
 
-@app.post("/predict")
-def predict(request: PredictRequest):
+# 3. Endpoint: Get Model Info (Used by UI Sidebar)
+@app.get("/model_info/{model_label}")
+def get_model_info(model_label: str):
+    """Fetches metadata for the current @champion without running a prediction."""
     try:
-        # 1. Prediction using the loaded singleton
-        results = model_server.predict(request.dict())
+        model_data = manager.get_model(model_label)
+        return {
+            "model": model_label,
+            "metadata": model_data["meta"],
+            "last_sync": model_data["last_updated"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Could not fetch {model_label}: {str(e)}")
+
+# 4. Endpoint: Predict + Explain
+@app.post("/predict/{model_label}")
+def predict_and_explain(model_label: str, request: MaintenanceRequest):
+    """
+    Runs prediction and generates SHAP explanations in one atomic call.
+    """
+    try:
+        # A. Run Prediction Logic
+        results = predict_with_explanation(model_label, request.model_dump())
         
-        # 2. SHAP Analysis (using the raw model inside the server)
-        # Note: access the underlying flavor (sklearn/lgbm) if needed for SHAP
-        shap_plots = get_shap_plots(model_server.model, results['processed_df'])
+        # B. Generate SHAP Plots
+        # We fetch the model directly from the manager's cache
+        pyfunc_model = manager.get_model(model_label)["model"]
+        # 1. Access the underlying flavor implementation
+        # For Native LightGBM flavor, it is stored in ._model_impl.lgbm_model
+        # if hasattr(pyfunc_model, "_model_impl"):
+        #     impl = pyfunc_model._model_impl
+            
+        #     # Check for LightGBM
+        #     if hasattr(impl, "lgbm_model"):
+        #         raw_model = impl.lgbm_model
+        #     # Check for Scikit-Learn (Random Forest)
+        #     elif hasattr(impl, "sklearn_model"):
+        #         raw_model = impl.sklearn_model
+        #     else:
+        #         raw_model = impl
+        # else:
+        #     raw_model = pyfunc_model
+
+        shap_plots = get_shap_plots(pyfunc_model, results['processed_df'])
         
         return {
             "prediction_details": {
                 "label": results['label'],
-                "confidence": results['confidence'],
-                "probability": results['probability']
+                "probability": results['probability'],
+                "prediction_code": results['prediction']
             },
-            "plots": shap_plots
+            "model_context": results['meta'],
+            "explanations": shap_plots
         }
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # In production, we log the full traceback but return a clean error
+        print(f"Prediction Error: {e}") 
+        raise HTTPException(status_code=500, detail="Internal Server Error during inference.")

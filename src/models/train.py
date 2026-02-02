@@ -159,8 +159,10 @@ def main():
                 f1 = f1_score(y_test, y_pred)
 
                 # --- Summary for CML ---
+                final_summary_metrics[f"{m_type}_test_precision"] = float(prec)
                 final_summary_metrics[f"{m_type}_test_recall"] = float(rec)
                 final_summary_metrics[f"{m_type}_test_f1"] = float(f1)
+                final_summary_metrics[f"{m_type}_test_pr_auc"] = float(pr_auc)
                 final_summary_metrics[f"{m_type}_threshold"] = float(best_thresh)
 
                 logger.info(f"{m_type.upper()} Results with Threshold {best_thresh:.2f}:")
