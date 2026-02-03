@@ -1,123 +1,86 @@
-# # src/api/app.py
-
-# from fastapi import FastAPI, HTTPException
-# from pydantic import BaseModel
-# from typing import Dict, Optional
-# from src.models.predict import list_available_models, load_model, load_threshold, predict
-
-# app = FastAPI(title="Predictive Maintenance API")
-
-# # Cache to store selected model
-# selected_model_cache = None
-
-# # Pydantic model for request body validation
-# class PredictRequest(BaseModel):
-#     type: str
-#     air_temperature: float
-#     process_temperature: float
-#     rotational_speed: float
-#     torque: float
-#     tool_wear: int
-
-# @app.get("/models")
-# def get_models():
-#     """
-#     Get available models and select one to be used for predictions.
-#     Fetches models from the MLflow tracking database.
-#     """
-#     models = list_available_models()  # Get available models from MLflow
-#     return {"available_models": models}
-
-# @app.post("/select_model")
-# def select_model_endpoint(model_name: str):
-#     """
-#     Endpoint to select a model for future predictions.
-#     The selected model will be cached for use in predictions.
-#     :param model_name: The model to select (e.g., "LGBM_class_weighted" or "RF_baseline")
-#     """
-#     global selected_model_cache
-#     try:
-#         models = list_available_models()
-#         model = next(m for m in models if m["model_name"] == model_name)
-        
-#         # Load the selected model and threshold from MLflow
-#         selected_model = load_model(model["run_id"], model["model_name"])
-#         threshold = load_threshold(model["run_id"])
-        
-#         # Cache the model and threshold
-#         selected_model_cache = {"model": selected_model, "threshold": threshold}
-        
-#         return {"message": f"Model {model_name} selected successfully."}
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-# @app.post("/predict")
-# def predict_endpoint(request: PredictRequest):
-#     """
-#     API endpoint for making predictions.
-#     Accepts input features from the user and uses the cached model for prediction.
-#     :param request: Input features from the user
-#     :return: Prediction result
-#     """
-#     if selected_model_cache is None:
-#         raise HTTPException(status_code=400, detail="No model selected. Please select a model first.")
-
-#     input_features = request.model_dump()
-#     try:
-#         # Predict using the cached model
-#         result = predict(input_features, model=selected_model_cache["model"], threshold=selected_model_cache["threshold"])
-#         return result
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-# @app.get("/health")
-# def health_check():
-#     """
-#     Health check endpoint to verify the API is up and running.
-#     :return: Status message
-#     """
-#     return {"status": "ok"}
-
-
-
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from src.models.predict import get_best_model_metadata, predict_with_confidence, cache
+# src/api/app.py
+from fastapi import FastAPI, HTTPException, Body
+from pydantic import BaseModel, Field
+from src.models.predict import manager, predict_with_explanation
 from src.models.shap_analysis import get_shap_plots
+from typing import Literal
 
-app = FastAPI(title="Maintenance AI Backend")
+app = FastAPI(
+    title="Predictive Maintenance AI API",
+    description="API for high-precision failure detection using @champion models from MLflow.",
+    version="2.0.0"
+)
 
-class PredictRequest(BaseModel):
-    type: str
-    air_temperature: float
-    process_temperature: float
-    rotational_speed: float
-    torque: float
-    tool_wear: int
+# 1. Define Request Schema
+class MaintenanceRequest(BaseModel):
+    type: Literal["Low", "Medium", "High"]
+    air_temperature: float = Field(..., gt=200, lt=400)
+    process_temperature: float = Field(..., gt=200, lt=400)
+    rotational_speed: int = Field(..., gt=0)
+    torque: float = Field(..., gt=0)
+    tool_wear: int = Field(..., ge=0)
 
-@app.post("/select_model")
-def select_model(model_name: str):
-    metadata = get_best_model_metadata(model_name)
-    if not metadata:
-        raise HTTPException(status_code=404, detail="Model not found in MLflow")
-    return metadata
+# 2. Endpoint: Health Check
+@app.get("/health")
+def health_check():
+    return {"status": "online", "registry": "connected"}
 
-@app.post("/predict")
-def predict(request: PredictRequest):
+# 3. Endpoint: Get Model Info (Used by UI Sidebar)
+@app.get("/model_info/{model_label}")
+def get_model_info(model_label: str):
+    """Fetches metadata for the current @champion without running a prediction."""
     try:
-        # 1. Get Prediction
-        results = predict_with_confidence(request.dict())
+        model_data = manager.get_model(model_label)
+        return {
+            "model": model_label,
+            "metadata": model_data["meta"],
+            "last_sync": model_data["last_updated"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Could not fetch {model_label}: {str(e)}")
+
+# 4. Endpoint: Predict + Explain
+@app.post("/predict/{model_label}")
+def predict_and_explain(model_label: str, request: MaintenanceRequest):
+    """
+    Runs prediction and generates SHAP explanations in one atomic call.
+    """
+    try:
+        # A. Run Prediction Logic
+        results = predict_with_explanation(model_label, request.model_dump())
         
-        # 2. Get SHAP Plots
-        shap_plots = get_shap_plots(cache.model, results['processed_df'])
+        # B. Generate SHAP Plots
+        # We fetch the model directly from the manager's cache
+        pyfunc_model = manager.get_model(model_label)["model"]
+        # 1. Access the underlying flavor implementation
+        # For Native LightGBM flavor, it is stored in ._model_impl.lgbm_model
+        # if hasattr(pyfunc_model, "_model_impl"):
+        #     impl = pyfunc_model._model_impl
+            
+        #     # Check for LightGBM
+        #     if hasattr(impl, "lgbm_model"):
+        #         raw_model = impl.lgbm_model
+        #     # Check for Scikit-Learn (Random Forest)
+        #     elif hasattr(impl, "sklearn_model"):
+        #         raw_model = impl.sklearn_model
+        #     else:
+        #         raw_model = impl
+        # else:
+        #     raw_model = pyfunc_model
+
+        shap_plots = get_shap_plots(pyfunc_model, results['processed_df'])
         
         return {
             "prediction_details": {
                 "label": results['label'],
-                "confidence": results['confidence'],
-                "probability": results['probability']
+                "probability": results['probability'],
+                "prediction_code": results['prediction']
             },
-            "plots": shap_plots
+            "model_context": results['meta'],
+            "explanations": shap_plots
         }
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # In production, we log the full traceback but return a clean error
+        print(f"Prediction Error: {e}") 
+        raise HTTPException(status_code=500, detail="Internal Server Error during inference.")

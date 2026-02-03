@@ -36,47 +36,47 @@ def ingest_data():
         OUTPUT_FILE = os.path.join(OUTPUT_DIR, ingest_params["output_file"])
 
         # --- 2. CONNECT TO DAGSHUB STORAGE ---
-        REPO_ID = f"{REPO_OWNER}/{REPO_NAME}"
-        logger.info(f"Connecting to DagsHub storage: {REPO_ID}")
+        dagshub_bucket_path   = f"{REPO_OWNER}/{REPO_NAME}" # DagsHub S3 bucket path
+        logger.info(f"Connecting to DagsHub storage bucket: {dagshub_bucket_path }")
 
         try:
-            s3fs_client = dagshub.get_repo_bucket_client(REPO_ID, flavor="s3fs")  # type: ignore
+            s3fs_client = dagshub.get_repo_bucket_client(dagshub_bucket_path , flavor="s3fs")  # type: ignore
         except Exception as e:
             raise ConnectionError(f"Failed to initialize DagsHub client: {e}")
 
         # --- 3. READ REMOTE DATA ---
-        remote_s3_path = f"{REPO_NAME}/{REMOTE_FILE_NAME}"
-        logger.info(f"Reading remote file: {remote_s3_path}")
+        remote_file_path = f"{REPO_NAME}/{REMOTE_FILE_NAME}"
+        logger.info(f"Reading remote file: {remote_file_path}")
 
         try:
-            with s3fs_client.open(remote_s3_path, "rb") as f:
+            with s3fs_client.open(remote_file_path, "rb") as f:
                 df_remote = pd.read_csv(f)
         except FileNotFoundError:
             raise FileNotFoundError(
                 f"Could not find '{REMOTE_FILE_NAME}' in DagsHub storage root."
             )
 
-        # Validate remote dataset
-        logger.info("Validating remote dataset schema...")
+        # -----Validate remote dataset---- 1
+        logger.info("Validating remote dagshub dataset schema...")
         df_remote = validate_training_data(df_remote)
 
         # --- 4. READ LOCAL DATA ---
-        logger.info(f"Reading local file: {LOCAL_FILE_PATH}")
+        # logger.info(f"Reading local file: {LOCAL_FILE_PATH}")
+        # if not os.path.exists(LOCAL_FILE_PATH):
+        #     raise FileNotFoundError(
+        #         f"Local file '{LOCAL_FILE_PATH}' not found."
+        #     )
 
-        if not os.path.exists(LOCAL_FILE_PATH):
-            raise FileNotFoundError(
-                f"Local file '{LOCAL_FILE_PATH}' not found."
-            )
+        # df_local = pd.read_csv(LOCAL_FILE_PATH) #####################
 
-        df_local = pd.read_csv(LOCAL_FILE_PATH)
-
-        # Validate local dataset
+        # -----Validate local dataset----- 2
         logger.info("Validating local dataset schema...")
-        df_local = validate_training_data(df_local)
+        # df_local = validate_training_data(df_local)
 
         # ---  MERGE & SAVE ---
         logger.info("Merging datasets...")
-        df_combined = pd.concat([df_remote, df_local], ignore_index=True)
+        # df_combined = pd.concat([df_remote, df_local], ignore_index=True) #########################
+        df_combined = df_remote ######################
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         df_combined.to_csv(OUTPUT_FILE, index=False)

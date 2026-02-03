@@ -8,16 +8,13 @@ from pandera.errors import SchemaError
 from src.utils.logger import logger  # Imported to track validation steps
 
 
-# -----------------------------
+
 # Custom Exception
-# -----------------------------
 class DatasetValidationError(Exception):
     """Raised when dataset validation fails."""
 
 
-# -----------------------------
 # Core Model Features
-# -----------------------------
 FEATURE_COLUMNS = {
     "Type": Column(str, nullable=False, checks=Check.isin(["L", "M", "H"])),
     "Air temperature [K]": Column(float, nullable=False),
@@ -28,9 +25,7 @@ FEATURE_COLUMNS = {
 }
 
 
-# -----------------------------
 # Training Schema
-# -----------------------------
 AI4I_TRAIN_SCHEMA = DataFrameSchema(
     {
         "id": Column(int, nullable=False),
@@ -47,9 +42,7 @@ AI4I_TRAIN_SCHEMA = DataFrameSchema(
 )
 
 
-# -----------------------------
 # Inference Schema
-# -----------------------------
 AI4I_INFERENCE_SCHEMA = DataFrameSchema(
     {**FEATURE_COLUMNS},
     strict="filter", 
@@ -57,9 +50,7 @@ AI4I_INFERENCE_SCHEMA = DataFrameSchema(
 )
 
 
-# -----------------------------
 # Validation Utilities
-# -----------------------------
 def validate_dataset(df: pd.DataFrame, schema: pa.DataFrameSchema) -> pd.DataFrame:
     """Validate and clean dataset with detailed logging."""
     if df.empty:
@@ -81,8 +72,7 @@ def validate_dataset(df: pd.DataFrame, schema: pa.DataFrameSchema) -> pd.DataFra
         logger.debug(f"Extra columns detected and will be filtered: {sorted(list(extra_cols))}")
 
     try:
-        # 3. Perform Pandera Validation
-        # strict="filter" will now remove those extra_cols
+        # 3. Perform Pandera Validation, will remove additional columns
         validated_df = schema.validate(df, lazy=True)
         return validated_df
 

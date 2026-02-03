@@ -1,108 +1,125 @@
+# src/models/predict.py
 import pandas as pd
 import mlflow
-import mlflow.sklearn
-import mlflow.lightgbm
+import mlflow.pyfunc
 from mlflow.tracking import MlflowClient
+import time
+import os
+import numpy as np
+import dagshub
 from src.features.feature_engineering import add_engineered_features
+from dotenv import load_dotenv
+load_dotenv()
 
-MLFLOW_TRACKING_URI = "sqlite:///mlflow.db"
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-
-# Maps for consistency
-EXP_MAP = {
-    "Random Forest": "predictive_maintenance_rf",
-    "LightGBM": "predictive_maintenance_lgbm"
-}
+# owner, repo = os.getenv('REPO_OWNER'), os.getenv('REPO_NAME')
+# DAGSHUB_URI = f"https://dagshub.com/{owner}/{repo}.mlflow" 
+# mlflow.set_tracking_uri(DAGSHUB_URI)
 
 TYPE_MAPPING = {'low': 0, 'medium': 1, 'high': 2}
 
-class ModelCache:
-    """Singleton-style cache to store the selected model and its metadata."""
+class ModelManager:
+    """Handles professional @champion loading and caching."""
     def __init__(self):
-        self.model = None
-        self.metadata = {}
-        self.threshold = 0.5
+        self.cache = {
+            "Failure-Avoidance Mode": {"model": None, "threshold": 0.5, "meta": None, "last_updated": 0},
+            "False-Alarm Reduction Mode": {"model": None, "threshold": 0.5, "meta": None, "last_updated": 0}
+        }
+        self.ttl = 6000  # Cache expires every 100 minutes
 
-cache = ModelCache()
-
-def get_best_model_metadata(model_type: str):
-    """
-    Finds the run with the highest pr_auc in the relevant experiment.
-    Returns metadata to display in Streamlit.
-    """
-    client = MlflowClient()
-    exp_name = EXP_MAP[model_type]
-    experiment = client.get_experiment_by_name(exp_name)
-    
-    if not experiment:
-        return None
-
-    # Search runs, order by pr_auc descending
-    runs = client.search_runs(
-        experiment_ids=[experiment.experiment_id],
-        max_results=1,
-        order_by=["metrics.pr_auc DESC"]
-    )
-    
-    if not runs:
-        return None
-
-    best_run = runs[0]
-    
-    # Store in global cache for the API to use
-    artifact_name = "RF_model" if model_type == "Random Forest" else "LGBM_model"
-    model_uri = f"runs:/{best_run.info.run_id}/{artifact_name}"
-    
-    if model_type == "Random Forest":
-        cache.model = mlflow.sklearn.load_model(model_uri)
-    else:
-        cache.model = mlflow.lightgbm.load_model(model_uri)
+    def get_model(self, model_label: str):
+        now = time.time()
+        # 1. Check if we need to refresh cache
+        if not self.cache[model_label]["model"] or (now - self.cache[model_label]["last_updated"] > self.ttl):
+            self._refresh_cache(model_label)
         
-    cache.threshold = best_run.data.metrics.get("optimal_threshold", 0.5)
-    
-    # Metadata for UI
-    cache.metadata = {
-        "Run Name": best_run.data.tags.get("mlflow.runName", "N/A"),
-        "PR-AUC": round(best_run.data.metrics.get("pr_auc", 0), 4),
-        "Recall": round(best_run.data.metrics.get("recall_at_opt_thresh", 0), 4),
-        "Optimal Threshold": round(cache.threshold, 4),
-        "Best Params": best_run.data.params
-    }
-    
-    return cache.metadata
+        return self.cache[model_label]
 
-def predict_with_confidence(input_dict: dict):
-    """Calculates prediction and confidence score."""
-    if cache.model is None:
-        raise ValueError("No model selected or cached.")
+    def _refresh_cache(self, model_label: str):
+        """Fetches the @production model and its threshold artifact."""
+        client = MlflowClient()
+        # 1. Map UI Label to Registry Name
+        reg_name = "LGBM_Model" if model_label == "Failure-Avoidance Mode" else "RF_Model"
+        target_alias = "production"
 
-    # Mapping UI fields to training field names
-    field_map = {
-        "type": "type",
-        "air_temperature": "air_temp",
-        "process_temperature": "process_temp",
-        "rotational_speed": "rpm",
-        "torque": "torque",
-        "tool_wear": "tool_wear"
-    }
+        try:
+            # 1. Connect to DagsHub
+            owner, repo = os.getenv('REPO_OWNER'), os.getenv('REPO_NAME')
+            dagshub.init(repo_name=repo, repo_owner=owner, mlflow=True) # type: ignore
+            
+            # 2. Load the Model Object
+            model_uri = f"models:/{reg_name}@{target_alias}"
+            model = mlflow.pyfunc.load_model(model_uri)
+            
+            # 3. Get the Run ID and version 
+            model_version_details = client.get_model_version_by_alias(reg_name, target_alias)
+            run_id = model_version_details.run_id
+            version = model_version_details.version
+
+            # 4. Download Threshold JSON
+            local_path = client.download_artifacts(str(run_id), "model_config/best_threshold.json")
+            import json
+            with open(local_path, 'r') as f:
+                threshold_data = json.load(f)
+                threshold = threshold_data.get("best_threshold", 0.5)
+
+            # 5. Update Cache
+            self.cache[model_label] = {
+                "model": model,
+                "threshold": threshold,
+                "meta": {
+                    "Model Name": reg_name,
+                    "Alias": target_alias,
+                    "Version": version,
+                    "Run ID": run_id,
+                    "Threshold": round(threshold, 2)
+                },
+                "last_updated": time.time()
+            }
+            print(f"Successfully cached {reg_name}@{target_alias} (v{version})")
+        except Exception as e:
+            print(f"Critical Error loading @{target_alias} for {model_label}: {e}")
+
+manager = ModelManager()
+
+def predict_with_explanation(model_label: str, input_dict: dict):
+    # 1. Get model and threshold from manager
+    data = manager.get_model(model_label)
+    model = data["model"]
+    threshold = data["threshold"]
+
+    # 2. Prep Data
+    field_map = {"type": "type", "air_temperature": "air_temp", "process_temperature": "process_temp", 
+                 "rotational_speed": "rpm", "torque": "torque", "tool_wear": "tool_wear"}
     
-    df_input = pd.DataFrame([{field_map[k]: v for k, v in input_dict.items()}])
+    # Create DataFrame with proper column names
+    df_input = pd.DataFrame([{field_map[k]: v for k, v in input_dict.items() if k in field_map}])
+    
+    # Process 'type' and run feature engineering
     df_input['type'] = df_input['type'].str.lower().map(TYPE_MAPPING)
-    
-    # Apply same feature engineering as train.py
     df_fe = add_engineered_features(df_input)
+
+    print(f"-------{df_fe}")
+
+    # 3. Predict Probability
+    # pyfunc.predict usually returns the probability if the flavor is LightGBM/XGBoost
+    raw_res = model.predict(df_fe)
+    print(f"_______{raw_res}")
     
-    # Probability
-    prob = float(cache.model.predict_proba(df_fe)[0][1])
-    prediction = 1 if prob >= cache.threshold else 0
-    
-    # Confidence Score: how 'sure' the model is
-    confidence = max(prob, 1 - prob) * 100
+    # Handle different return types (Single value vs Array)
+    if isinstance(raw_res, (np.ndarray, list)):
+        prob = float(raw_res[0])
+    else:
+        prob = float(raw_res)
+
+    # 4. Apply Threshold Logic
+    prediction = 1 if prob >= threshold else 0
+
+    print(f"--{prediction}---")
     
     return {
         "prediction": prediction,
-        "probability": round(prob, 4),
-        "confidence": round(confidence, 2),
+        "probability": round(prob, 2),
         "label": "FAILURE DETECTED" if prediction == 1 else "Normal Operation",
-        "processed_df": df_fe # Passing this for SHAP
+        "processed_df": df_fe,
+        "meta": data["meta"]
     }

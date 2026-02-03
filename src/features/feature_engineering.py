@@ -17,13 +17,13 @@ def add_engineered_features(X: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Missing required columns for feature engineering: {missing}")
 
     # 1. Power: Mechanical work metric
-    X_fe["power"] = X_fe["rpm"] * X_fe["torque"]
+    X_fe["power"] = (X_fe["rpm"] * X_fe["torque"]).round(2)
     
     # 2. Temp Diff: Thermal stress metric
-    X_fe["temp_diff"] = X_fe["process_temp"] - X_fe["air_temp"]
+    X_fe["temp_diff"] = (X_fe["process_temp"] - X_fe["air_temp"]).round(2)
     
     # 3. Torque per RPM: Efficiency/load metric
-    X_fe["torque_per_rpm"] = X_fe["torque"] / (X_fe["rpm"] + 1e-6)
+    X_fe["torque_per_rpm"] = (X_fe["torque"] / (X_fe["rpm"] + 1e-6)).round(2)
 
     return X_fe
 
@@ -41,11 +41,11 @@ if __name__ == "__main__":
         # Ensure the new directory exists
         os.makedirs(output_dir, exist_ok=True)
         
-        for split_file in ['train.csv', 'test.csv']:
-            path = os.path.join(input_dir, split_file)
+        for train_or_test_file in ['train.csv', 'test.csv']:
+            path = os.path.join(input_dir, train_or_test_file)
             
             if os.path.exists(path):
-                logger.info(f"Applying feature engineering to {split_file}")
+                logger.info(f"Applying feature engineering to {train_or_test_file}")
                 df = pd.read_csv(path)
                 
                 # Separate target
@@ -59,7 +59,7 @@ if __name__ == "__main__":
                 df_final = pd.concat([X_engineered, y], axis=1)
                 
                 # Save to the feature_engineered directory with a clear name
-                save_name = split_file.replace(".csv", "_enriched.csv")
+                save_name = train_or_test_file.replace(".csv", "_enriched.csv")
                 save_path = os.path.join(output_dir, save_name)
                 df_final.to_csv(save_path, index=False)
                 
