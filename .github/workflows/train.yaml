@@ -59,7 +59,12 @@ jobs:
               f.write("| Metric | Value |\n")
               f.write("|--------|-------|\n")
               for key, value in metrics.items():
-                  f.write(f"| {key} | {value:.4f} |\n")
+                  # Handle both numeric and string values
+                  if isinstance(value, (int, float)):
+                      formatted_value = f"{value:.4f}"
+                  else:
+                      formatted_value = str(value)
+                  f.write(f"| {key} | {formatted_value} |\n")
           EOF
           
           # Post the report as a comment
