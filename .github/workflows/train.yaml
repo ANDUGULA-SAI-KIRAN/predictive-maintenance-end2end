@@ -19,7 +19,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
+          echo "✅ Dependencies installed successfully"
 
       - name: Pull data from DagsHub (DVC)
         env:
@@ -36,7 +38,17 @@ jobs:
         run: dvc repro  # This runs ingest -> preprocess -> train -> evaluate
 
       - name: Setup CML
-        uses: iterative/setup-cml@v1
+        uses: iterative/setup-cml@v2
+
+      - name: Verify Training Output
+        run: |
+          if [ ! -f "reports/metrics.json" ]; then
+            echo "❌ ERROR: reports/metrics.json not found!"
+            exit 1
+          fi
+          echo "✅ Metrics file found"
+          echo "📊 Metrics content:"
+          cat reports/metrics.json
 
       - name: Create and Post Report
         env:
@@ -50,17 +62,36 @@ jobs:
           # Format metrics.json into a readable markdown table
           python3 << 'EOF'
           import json
+          import os
+          
+          # Verify file exists
+          if not os.path.exists('reports/metrics.json'):
+              print("❌ ERROR: reports/metrics.json not found!")
+              exit(1)
           
           with open('reports/metrics.json', 'r') as f:
               metrics = json.load(f)
+          
+          if not metrics:
+              print("⚠️ WARNING: metrics.json is empty!")
+              exit(1)
           
           # Create markdown table
           with open('report.md', 'a') as f:
               f.write("| Metric | Value |\n")
               f.write("|--------|-------|\n")
               for key, value in metrics.items():
-                  f.write(f"| {key} | {value:.4f} |\n")
+                  if isinstance(value, (int, float)):
+                      f.write(f"| {key} | {value:.4f} |\n")
+                  else:
+                      f.write(f"| {key} | {value} |\n")
+          
+          print("✅ Report generated successfully")
           EOF
           
-          # Post the report as a comment
-          cml comment create report.md
+          echo ""
+          echo "📊 Generated Report:"
+          cat report.md
+          
+          # Post the report as a comment (optional - may fail on forks)
+          cml comment create report.md || echo "⚠️ Could not post comment (token permissions issue on fork/PR)"

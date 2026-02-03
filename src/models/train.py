@@ -117,7 +117,8 @@ def main():
         # Assuming we need atleast 0.5 of recall as per business needs
         min_recall_threshold = 0.45
         min_f1_threshold = 0.45
-        final_summary_metrics={}
+        final_summary_metrics = {}
+        model_registry = {}  # Track which models were registered
 
         for m_type in ['rf', 'lgbm']:
             logger.info(f"---Starting {m_type.upper()} trials---")
@@ -217,21 +218,36 @@ def main():
                         version=model_info.registered_model_version # type: ignore
                     )
                     logger.info(f"Registered {reg_name} version {model_info.registered_model_version} as 'candidate'")
-                    final_summary_metrics[f"{m_type}_registered"] = "Yes"
+                    model_registry[m_type] = "registered"
                 else:
-                    final_summary_metrics[f"{m_type}_registered"] = "No"
+                    model_registry[m_type] = "rejected"
                     logger.warning(f"❌ {m_type.upper()} recall {rec:.2f} < {min_recall_threshold} or {f1:.2f} < {min_f1_threshold}")
 
         # --- ADDED: Save metrics to local file for GitHub/DVC ---
-        # Filter only numeric metrics for JSON report (exclude string values like "registered")
+        # Filter only numeric metrics for JSON report
         numeric_metrics = {
             key: val for key, val in final_summary_metrics.items()
             if isinstance(val, (int, float))
         }
+        
+        # Add model registration status (non-numeric but informative)
+        model_summary = {
+            "metrics": numeric_metrics,
+            "model_status": model_registry,
+            "best_model": max(model_registry.items(), key=lambda x: 1 if x[1] == "registered" else 0)[0] if any(s == "registered" for s in model_registry.values()) else "none"
+        }
+        
         os.makedirs("reports", exist_ok=True)
         with open("reports/metrics.json", "w") as f:
             json.dump(numeric_metrics, f, indent=4)
+        
+        # Save full summary for reference
+        with open("reports/model_summary.json", "w") as f:
+            json.dump(model_summary, f, indent=4)
+        
         logger.info("Final metrics saved to reports/metrics.json")
+        logger.info(f"Model Status: {model_registry}")
+        logger.info(f"Summary: {model_summary}")
         sys.exit(0)
 
     except Exception as e:

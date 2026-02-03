@@ -62,15 +62,15 @@ def get_shap_plots(pyfunc_model, input_df):
         if isinstance(shap_values, list):
             # RF usually returns [class0, class1]
             sv = shap_values[1]
-            ev = explainer.expected_value[1]
+            ev = explainer.expected_value[1] # type: ignore
         elif len(shap_values.shape) == 3:
             # Shape: (samples, features, classes)
             sv = shap_values[0, :, 1]
-            ev = explainer.expected_value[1]
+            ev = explainer.expected_value[1] # type: ignore
         elif len(shap_values.shape) == 2 and shap_values.shape[1] == 2:
             # Shape: (samples, classes)
             sv = shap_values[:, 1]
-            ev = explainer.expected_value[1]
+            ev = explainer.expected_value[1] # type: ignore
         else:
             # Single output / Regression / Binary LGBM native
             sv = shap_values
