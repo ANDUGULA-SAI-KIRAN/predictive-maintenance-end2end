@@ -7,7 +7,7 @@ data/processed
 data/feature_engineered
 
 models
-reports
+# reports  # Allow metrics.json to be tracked
 
 
 # Byte-compiled / optimized / DLL files
