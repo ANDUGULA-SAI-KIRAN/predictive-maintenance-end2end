@@ -223,9 +223,14 @@ def main():
                     logger.warning(f"❌ {m_type.upper()} recall {rec:.2f} < {min_recall_threshold} or {f1:.2f} < {min_f1_threshold}")
 
         # --- ADDED: Save metrics to local file for GitHub/DVC ---
+        # Filter only numeric metrics for JSON report (exclude string values like "registered")
+        numeric_metrics = {
+            key: val for key, val in final_summary_metrics.items()
+            if isinstance(val, (int, float))
+        }
         os.makedirs("reports", exist_ok=True)
         with open("reports/metrics.json", "w") as f:
-            json.dump(final_summary_metrics, f, indent=4)
+            json.dump(numeric_metrics, f, indent=4)
         logger.info("Final metrics saved to reports/metrics.json")
         sys.exit(0)
 
