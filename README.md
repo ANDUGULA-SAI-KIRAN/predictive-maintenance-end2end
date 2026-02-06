@@ -1,24 +1,36 @@
 # Predictive Maintenance End-to-End
 
-## Architectural Overview
+## Overview
+This project implements a predictive maintenance solution using machine learning and cloud deployment. The process is divided into two main phases: automation of model training via GitHub Actions and deployment in the cloud.
 
-This repository focuses on implementing a predictive maintenance solution using state-of-the-art machine learning techniques. The architecture is divided into phases to facilitate structured development and deployment.
+## Phase 1: GitHub Actions CI Automation with Pull Request Model Training
+### Automation Perspective
+The Continuous Integration (CI) process in this project utilizes GitHub Actions. It automatically triggers workflows that validate code changes and train models whenever a pull request is created.
 
-### Phase 1: Data Collection and Preprocessing
-- **Data Sources:** Various sensors and logs related to equipment performance.
-- **Data Ingestion:** Data is ingested using cloud services and stored securely.
-- **Data Preprocessing:** This includes data cleaning, normalization, and feature engineering.
+### Workflow Diagram
+![CI Automation Diagram](path/to/your/diagram1.png) <!-- Update with actual path -->
 
-### Phase 2: Model Training and Deployment
-- **Model Selection:** Various models are evaluated based on their performance.
-- **Training Pipeline:** The training process is automated using GitHub Actions, allowing for seamless retraining of models on new data.
-- **Model Evaluation:** Continuous evaluation of model performance and adjustments based on metrics.
+#### Process Steps:
+1. **Pull Request Trigger**: When a pull request is opened, it initiates the CI workflow.
+2. **Code Validation**: The workflow runs tests to ensure that the new code integrates smoothly with the existing codebase.
+3. **Model Training**: If the tests pass, the model training process begins, utilizing the latest changes.
 
-## GitHub Actions Automation
+### Detailed Explanation
+The GitHub Actions workflow consists of multiple jobs defined in the `.github/workflows/ci.yml` file. Each job is designed to handle specific tasks, such as testing, linting, and model training.
 
-The project takes advantage of GitHub Actions for:
-1. **Model Training:** Automated workflows are triggered on data updates to ensure models are retrained regularly.
-2. **Pull Request Reporting:** Each pull request triggers a check that reports the current model performance ensuring code changes do not degrade the model's predictive capabilities.
-3. **Deployment:** Upon successful training and evaluation, models are deployed to production automatically.
+## Phase 2: Cloud Deployment
+### Automation Perspective
+The deployment process leverages cloud services for seamless scalability and reliability. Automation scripts are included to ensure that deployments occur consistently and without manual intervention.
 
-This architecture promotes a continuous integration/continuous deployment (CI/CD) approach that enhances the reliability and efficiency of predictive maintenance solutions.
+### Workflow Diagram
+![Cloud Deployment Diagram](path/to/your/diagram2.png) <!-- Update with actual path -->
+
+#### Process Steps:
+1. **Build Image**: The application is containerized into an image via Docker.
+2. **Deploy to Cloud**: The image is pushed to a cloud provider, where it is deployed across multiple instances.
+
+### Detailed Explanation
+Deployment automation scripts use cloud provider SDKs to manage resources, ensuring that updates are reflected in real time, and resources are scaled based on user demand.
+
+## Conclusion
+This README outlines the comprehensive phases of CI automation and cloud deployment. Each phase contributes to a robust predictive maintenance workflow designed to minimize downtime and enhance decision-making capabilities.
