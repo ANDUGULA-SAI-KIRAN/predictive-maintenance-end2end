@@ -310,4 +310,4 @@ Real-time Inference (Automated scaling)
 > Note: Refer Readme_docker.md for phase 2 implementations
 
 ## Conclusion
-This project showcases a robust architecture for continuously integrating machine learning models with GitHub Actions while preparing for seamless deployment in cloud environments. The focus on automation and reliability is key to ensuring machine learning models are always up to date and ready for production use.
+This project goal is to showcases a robust architecture for continuously integrating machine learning models with GitHub Actions while preparing for seamless deployment in cloud environments. The focus on automation and reliability is key to ensuring machine learning models are always up to date and ready for production use.

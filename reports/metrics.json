@@ -1,1 +1,12 @@
-{}
+{
+    "rf_test_precision": 0.5078125,
+    "rf_test_recall": 0.4961832061068702,
+    "rf_test_f1": 0.5019305019305019,
+    "rf_test_pr_auc": 0.4107265983139807,
+    "rf_threshold": 0.855848629291931,
+    "lgbm_test_precision": 0.5601851851851852,
+    "lgbm_test_recall": 0.4618320610687023,
+    "lgbm_test_f1": 0.5062761506276151,
+    "lgbm_test_pr_auc": 0.433519951520466,
+    "lgbm_threshold": 0.9295426009291234
+}
