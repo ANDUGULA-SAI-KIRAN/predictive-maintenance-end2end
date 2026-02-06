@@ -100,19 +100,19 @@ stages:
       size: 2501
     - path: src/models/train.py
       hash: md5
-      md5: 1b04ab056ab326890ed37b137bc6cd26
-      size: 9216
+      md5: 5f520fd5bd3375058c490c8d6e03f7f6
+      size: 12660
     params:
       params.yaml:
         base:
           random_state: 42
           target_col: machine_failure
         train:
-          n_trials: 25
+          n_trials: 10
           cv_folds: 5
           experiments:
-            rf: RF_Maintenance_DagsHub
-            lgbm: LGBM_Maintenance_DagsHub
+            rf: RF_Model
+            lgbm: LGBM_Model
           rf_params:
             n_estimators:
             - 100
@@ -161,11 +161,10 @@ stages:
             - balanced
             - 
     outs:
-    - path: models/
+    - path: reports/metrics.json
       hash: md5
-      md5: e993e0fdb820062ed00b2d99175e24db.dir
-      size: 1325885
-      nfiles: 2
+      md5: d60a07c0aad1b8e36111902a28672b90
+      size: 426
   evaluate:
     cmd: python -m src.models.evaluate
     deps:

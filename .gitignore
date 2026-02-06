@@ -5,8 +5,8 @@ test.csv
 data/raw
 data/processed
 data/feature_engineered
+/models/
 
-models
 # reports  # Allow metrics.json to be tracked
 
 
@@ -218,4 +218,3 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-models

@@ -18,12 +18,13 @@ project/
 │   │   ├── train.py            # Training
 │   │   ├── evaluate.py         # Evaluation
 │   │   ├── predict.py          # Prediction/inference
+|   |   ├── shap_analysis.py    # shap analysis
 │   │
 │   ├── api/
 │   │   └── app.py              # FastAPI / inference service
 │   │
 │   ├── ui/
-│   │   └── streamlit_app.py    # Streamlit dashboard
+│   │   └── streamlit_ui.py    # Streamlit dashboard
 │
 ├── data/                       # All DVC-tracked datasets
 │   ├── raw/                    # Ingested & merged datasets
@@ -45,6 +46,23 @@ project/
 └── README.md
 
 
+
+
+$env:REPO_OWNER="your-username"
+$env:REPO_NAME="your-repo"
+$env:DAGSHUB_TOKEN="your-token"
+
+python -c "
+import os
+import dagshub
+dagshub.init(
+    repo_name=os.getenv('REPO_NAME'),
+    repo_owner=os.getenv('REPO_OWNER'),
+    mlflow=True
+)
+import mlflow
+print(mlflow.get_tracking_uri())
+"
 
 
 

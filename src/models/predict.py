@@ -9,11 +9,8 @@ import numpy as np
 import dagshub
 from src.features.feature_engineering import add_engineered_features
 from dotenv import load_dotenv
+from src.utils.logger import logger
 load_dotenv()
-
-# owner, repo = os.getenv('REPO_OWNER'), os.getenv('REPO_NAME')
-# DAGSHUB_URI = f"https://dagshub.com/{owner}/{repo}.mlflow" 
-# mlflow.set_tracking_uri(DAGSHUB_URI)
 
 TYPE_MAPPING = {'low': 0, 'medium': 1, 'high': 2}
 

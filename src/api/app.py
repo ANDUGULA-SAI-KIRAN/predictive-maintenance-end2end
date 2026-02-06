@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from src.models.predict import manager, predict_with_explanation
 from src.models.shap_analysis import get_shap_plots
 from typing import Literal
+from src.utils.logger import logger
 
 app = FastAPI(
     title="Predictive Maintenance AI API",
@@ -52,22 +53,6 @@ def predict_and_explain(model_label: str, request: MaintenanceRequest):
         # B. Generate SHAP Plots
         # We fetch the model directly from the manager's cache
         pyfunc_model = manager.get_model(model_label)["model"]
-        # 1. Access the underlying flavor implementation
-        # For Native LightGBM flavor, it is stored in ._model_impl.lgbm_model
-        # if hasattr(pyfunc_model, "_model_impl"):
-        #     impl = pyfunc_model._model_impl
-            
-        #     # Check for LightGBM
-        #     if hasattr(impl, "lgbm_model"):
-        #         raw_model = impl.lgbm_model
-        #     # Check for Scikit-Learn (Random Forest)
-        #     elif hasattr(impl, "sklearn_model"):
-        #         raw_model = impl.sklearn_model
-        #     else:
-        #         raw_model = impl
-        # else:
-        #     raw_model = pyfunc_model
-
         shap_plots = get_shap_plots(pyfunc_model, results['processed_df'])
         
         return {

@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.fastapi
+    container_name: predictive_maintenance_api
+    ports:
+      - "8000:8000"
+    environment:
+      - REPO_OWNER=${REPO_OWNER}
+      - REPO_NAME=${REPO_NAME}
+      - DAGSHUB_TOKEN=${DAGSHUB_TOKEN}
+    env_file:
+      - .env
+    volumes:
+      # Persist models downloaded from DagsHub MLflow
+      - ./models:/app/models
+      # Persist MLflow cache directory
+      - mlflow_cache:/root/.mlflow
+    networks:
+      - maintenance_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: predictive_maintenance_ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://fastapi:8000
+      - REPO_OWNER=${REPO_OWNER}
+      - REPO_NAME=${REPO_NAME}
+      - DAGSHUB_TOKEN=${DAGSHUB_TOKEN}
+    env_file:
+      - .env
+    volumes:
+      # Share models folder with FastAPI (read-only access)
+      - ./models:/app/models:ro
+      # Persist MLflow cache directory
+      - mlflow_cache:/root/.mlflow
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    networks:
+      - maintenance_network
+    restart: unless-stopped
+
+# Define named volumes
+volumes:
+  mlflow_cache:
+    driver: local
+
+networks:
+  maintenance_network:
+    driver: bridge

@@ -1,0 +1,87 @@
+# .dockerignore
+# Exclude unnecessary files from Docker build context
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# DVC
+.dvc/
+*.dvc
+
+# Data directories 
+# Note: models/ is NOT ignored because it's mounted as a volume
+# DVC-tracked data files are ignored
+data/
+mlruns/
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Environment files
+.env
+.env.*
+
+# CI/CD
+.github/
+
+# Documentation
+*.md
+docs/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

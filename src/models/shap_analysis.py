@@ -1,14 +1,12 @@
+# src/models/shap_analysis.py
+from src.utils.logger import logger
 import matplotlib
-# MUST be the very first matplotlib call to prevent "Main thread" crashes
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 import shap
 import io
 import base64
 import numpy as np
-import logging
-
-logger = logging.getLogger(__name__)
 
 def get_shap_plots(pyfunc_model, input_df):
     try:

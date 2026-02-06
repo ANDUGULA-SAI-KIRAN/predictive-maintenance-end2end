@@ -4,9 +4,12 @@ import requests
 import base64
 from PIL import Image
 import io
+import os
 
 # 1. Configuration
-API_URL = "http://127.0.0.1:8000"
+# API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+
 
 st.set_page_config(
     page_title="Maintenance AI | @champion Dashboard", 
@@ -14,13 +17,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS for Styling ---
-st.markdown("""
+st.markdown(
+    """
     <style>
-    .main { background-color: #f5f7f9; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .main {
+        background-color: #f5f7f9;
+    }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
+
 
 # 2. Sidebar: Model Strategy
 st.sidebar.title("🚀 Model Selection")
@@ -67,45 +74,6 @@ with st.container():
 
 st.divider()
 
-# # 4. Prediction Execution
-# if st.button("🚀 Analyze Failure Risk", use_container_width=True):
-#     payload = {
-#         "type": m_type,
-#         "air_temperature": air_temp,
-#         "process_temperature": process_temp,
-#         "rotational_speed": int(rpm),
-#         "torque": torque,
-#         "tool_wear": tool_wear
-#     }
-    
-#     with st.spinner("Inference in progress..."):
-#         res = requests.post(f"{API_URL}/predict/{model_choice}", json=payload)
-        
-#         if res.status_code == 200:
-#             data = res.json()
-#             details = data['prediction_details']
-#             plots = data['explanations']
-            
-#             # --- Results Row ---
-#             res_col1, res_col2 = st.columns([1, 2])
-            
-#             with res_col1:
-#                 st.subheader("Inference Result")
-#                 color = "red" if details['prediction_code'] == 1 else "green"
-#                 st.markdown(f"<h1 style='color: {color};'>{details['label']}</h1>", unsafe_allow_html=True)
-#                 st.metric("Probability", f"{details['probability']*100:.1f}%")
-#                 st.metric("Threshold Used", f"{data['model_context']['Threshold']}")
-            
-#             with res_col2:
-#                 st.subheader("SHAP Explanation")
-#                 tab1, tab2 = st.tabs(["Waterfall (Local Impact)", "Bar (Global Magnitude)"])
-#                 with tab1:
-#                     st.image(base64.b64decode(plots['waterfall']))
-#                 with tab2:
-#                     st.image(base64.b64decode(plots['bar']))
-#         else:
-#             st.error(f"Prediction Error: {res.text}")
-
 # 4. Prediction Execution
 if st.button("🚀 Analyze Failure Risk", use_container_width=True):
     payload = {
@@ -136,11 +104,23 @@ if st.button("🚀 Analyze Failure Risk", use_container_width=True):
                     color = "red" if pred_code == 1 else "green"
                     
                     st.markdown(f"<h1 style='color: {color};'>{details.get('label', 'N/A')}</h1>", unsafe_allow_html=True)
-                    st.metric("Probability", f"{details.get('probability', 0)*100:.1f}%")
-                    
-                    # Safely access threshold from model_context
                     m_context = data.get('model_context', {})
-                    st.metric("Threshold Used", f"{m_context.get('Threshold', 'N/A')}")
+                    # prob = details.get('probability', 0) * 100
+                    threshold = m_context.get('Threshold', 'N/A')
+
+                    st.markdown(
+                        f"""
+                        <div style="
+                            color: white;
+                            font-size: 1.1rem;
+                            margin-top: 10px;
+                            line-height: 1.6;
+                        ">
+                            <b>Threshold Used:</b> {threshold}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
                 
                 with res_col2:
                     st.subheader("SHAP Explanation")
