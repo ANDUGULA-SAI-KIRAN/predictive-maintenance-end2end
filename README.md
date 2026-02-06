@@ -3,17 +3,17 @@
 An end-to-end **Predictive Maintenance** system showcasing **Continuous Machine Learning (CML)** and Model inferencing via **FastAPi with Docker Image** for Deployment.
 
 ## Technology Stack
-> ML: scikit-learn, LightGBM, SHAP, Optuna
-> MLOps: DVC, MLflow, Dagshub
-> API: FastAPI, Uvicorn
-> UI: Streamlit
-> DevOps: Docker, Docker Compose
-> CML: GitHub Actions
-> Data: pandas, numpy, pyarrow, Pydantic validation
+- ML: scikit-learn, LightGBM, SHAP, Optuna
+- MLOps: DVC, MLflow, Dagshub
+- API: FastAPI, Uvicorn
+- UI: Streamlit
+- DevOps: Docker, Docker Compose
+- CML: GitHub Actions
+- Data: pandas, numpy, pyarrow, Pydantic validation
 
 ---
 ## Project Structure
-
+```
 project/
 ├── notebooks/                      # Analysis & experimentation
 │   ├── 01_eda.ipynb                # Failure patterns & imbalance
@@ -52,7 +52,7 @@ project/
 ├── Dockerfile.streamlit         # UI container (Phase 2)
 ├── docker-compose.yml           # Local orchestration (Phase 2)
 └── .github/workflows/           # GitHub Actions (Phase 1)
-
+```
 ---
 
 ## 🧭 Architectural Overview
@@ -70,7 +70,7 @@ Phase 2 focuses on model inference using Docker.
 ## 🚀 PHASE 1: Continuous Machine Learning (CI Automation)
 
 > When a Pull Request is opened, **GitHub Actions** automatically runs the entire ML lifecycle.
-
+```
 Developer commits changes
         ↓
    Create Pull Request
@@ -107,7 +107,7 @@ GitHub Actions Triggered (Automatic)
 └─────────────────────────────────────┘
         ↓
   Decision: Merge or Request Changes
-
+```
 
 ### Step 1: Developer Creates a Pull Request
 
@@ -136,6 +136,7 @@ on:
 ### Step 3: ML Pipeline Executes (Automated)
 DVC Pipeline stages run sequentially:
 
+```
 Stage 1: INGEST
 └─ Command: python -m src.data.data_ingest
    Output: data/raw/combined.csv
@@ -194,7 +195,7 @@ Stage 6: EXPLAINABILITY ANALYSIS
    ├─ SHAP Summary Plots
    ├─ Feature Importance Rankings
    └─ Decision explanations
-
+```
 
 ### Step 4: Results Automatically Posted to PR (via CML)
 Continuous Machine Learning (CML) Bot Posts:
@@ -254,32 +255,31 @@ git clone https://github.com/ANDUGULA-SAI-KIRAN/predictive-maintenance-end2end.g
 cd predictive-maintenance-end2end
 
 ### 2. Make Changes (2 min)
-#### Edit params.yaml to tune hyperparameters
-params.yaml
-#### OR modify src/models/train.py logic
+Edit params.yaml to tune hyperparameters
+**OR** modify src/models/train.py logic
 
 ### 3. Commit & Push (1 min)
-git add params.yaml src/models/train.py
-git commit -m "Improve model: increase LightGBM learning rate"
-git push origin feature/tune-lgbm
+- git add params.yaml src/models/train.py
+- git commit -m "Improve model: increase LightGBM learning rate"
+- git push origin feature/tune-lgbm
 
 ### 4. Create PR (1 min)
-#### Go to GitHub, click "Create Pull Request"
-#### Add description: "Testing new hyperparameters for LightGBM or RF"
+- Go to GitHub, click "Create Pull Request"
+- Add description: "Testing new hyperparameters for LightGBM or RF"
 
 ### 5. WAIT & WATCH (GitHub does all the work now) ⏳
-#### GitHub Actions automatically:
-✅ Spins up runner
-✅ Installs dependencies
-✅ Runs complete ML pipeline
-✅ Calculates metrics
-✅ Generates visualizations
-✅ Posts results in PR comments
+GitHub Actions automatically:
+- ✅ Spins up runner
+- ✅ Installs dependencies
+- ✅ Runs complete ML pipeline
+- ✅ Calculates metrics
+- ✅ Generates visualizations
+- ✅ Posts results in PR comments
 
 ### 6. Review Results (3 min)
-#### Check PR comments for metrics & charts
-#### If metrics look good → MERGE
-#### If not → Make changes & repeat
+- Check PR comments for metrics & charts
+- If metrics look good → MERGE
+- If not → Make changes & repeat
 ---
 
 ### Phase 1 Key Automations
@@ -307,7 +307,7 @@ Deploy to Cloud (AWS SageMaker / Azure ML)
 Real-time Inference (Automated scaling)
 ```
 
-> Note: Refer Readme_docker.md for phase 2 implementations
+> Note: Refer Readme_docker.md for phase 2 Model inference and Deployment Guide.
 
 ## Conclusion
 This project goal is to showcases a robust architecture for continuously integrating machine learning models with GitHub Actions while preparing for seamless deployment in cloud environments. The focus on automation and reliability is key to ensuring machine learning models are always up to date and ready for production use.
