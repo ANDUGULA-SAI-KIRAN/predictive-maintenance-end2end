@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   fastapi:
+    image: 775261844262.dkr.ecr.eu-north-1.amazonaws.com/predictive-maintenance-api:latest
     build:
       context: .
       dockerfile: Dockerfile.fastapi
@@ -30,6 +31,7 @@ services:
       start_period: 40s
 
   streamlit:
+    image: 775261844262.dkr.ecr.eu-north-1.amazonaws.com/predictive-maintenance-ui:latest
     build:
       context: .
       dockerfile: Dockerfile.streamlit
